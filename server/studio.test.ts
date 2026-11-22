@@ -47,6 +47,56 @@ async function drawAndWait(app: express.Express, studio: Studio, id: number) {
 }
 
 describe("drawing-first workflow", () => {
+  it("exports and restores favorites while rejecting invalid backup entries before saving", async () => {
+    const { app } = setup();
+    const existing = { make: "Honda", model: "Accord", year: 2024, groupName: "Favorites" };
+    await request(app).put("/api/favorites").send(existing);
+    const backup = {
+      format: "vanguard-draft-favorites",
+      version: 1,
+      exportedAt: "2026-11-22T00:00:00.000Z",
+      groups: ["Favorites", "Track cars"],
+      favorites: [{ make: "Honda", model: "Civic", year: 2024, trim: "civic-type-r", groupName: "Track cars" }],
+    };
+
+    const imported = await request(app).post("/api/favorites/import").send(backup);
+    expect(imported.status).toBe(200);
+    expect(imported.body.importedCount).toBe(1);
+    expect(imported.body.groups).toEqual(["Favorites", "Track cars"]);
+    expect(imported.body.favorites).toEqual([existing, ...backup.favorites]);
+
+    const exported = await request(app).get("/api/favorites/export");
+    expect(exported.status).toBe(200);
+    expect(exported.body).toMatchObject({
+      format: "vanguard-draft-favorites",
+      version: 1,
+      groups: ["Favorites", "Track cars"],
+      favorites: [existing, ...backup.favorites],
+    });
+    expect(new Date(exported.body.exportedAt).toString()).not.toBe("Invalid Date");
+
+    const invalidBackup = {
+      ...backup,
+      version: 2,
+      groups: ["Favorites", "Uncommitted group"],
+      favorites: [
+        { make: "Honda", model: "Not a model", year: 2024, groupName: "Uncommitted group" },
+        { make: "Honda", model: "Civic", year: 2024, trim: "unknown-trim", groupName: "Uncommitted group" },
+        { make: "Honda", model: "Accord", year: 2024, groupName: "Missing group" },
+      ],
+    };
+    const rejected = await request(app).post("/api/favorites/import").send(invalidBackup);
+    expect(rejected.status).toBe(400);
+    expect(rejected.body.details).toEqual(expect.arrayContaining([
+      expect.stringContaining("favorites[0].year"),
+      expect.stringContaining("favorites[1].trim"),
+      expect.stringContaining("favorites[2].groupName"),
+      expect.stringContaining("version"),
+    ]));
+    expect((await request(app).get("/api/favorite-groups")).body).toEqual(["Favorites", "Track cars"]);
+    expect((await request(app).get("/api/favorites")).body).toEqual([existing, ...backup.favorites]);
+  });
+
   it("creates favorite groups and moves a vehicle without duplicating it", async () => {
     const { app } = setup();
     const favorite = { make: "Honda", model: "Civic", year: 2024 };

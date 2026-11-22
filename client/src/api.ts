@@ -1,7 +1,10 @@
-import type { BuildConfig, BuildDto, BuildSummaryDto, DrawingKey, FavoriteVehicle, RenderAngle, UsageDto } from "../../shared/types";
+import type {
+  BuildConfig, BuildDto, BuildSummaryDto, DrawingKey, FavoriteVehicle, FavoriteVehicleBackup,
+  FavoriteVehicleImportResult, RenderAngle, UsageDto,
+} from "../../shared/types";
 
 export class ApiRequestError extends Error {
-  constructor(message: string, readonly status: number, readonly code: string) {
+  constructor(message: string, readonly status: number, readonly code: string, readonly details?: string[]) {
     super(message);
   }
 }
@@ -18,8 +21,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     throw new ApiRequestError("Can't reach the server. Check that it is running.", 0, "NETWORK");
   }
   if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => null) as { error?: string; code?: string } | null;
-  if (!res.ok) throw new ApiRequestError(data?.error ?? `Request failed (${res.status}).`, res.status, data?.code ?? "HTTP");
+  const data = await res.json().catch(() => null) as { error?: string; code?: string; details?: string[] } | null;
+  if (!res.ok) throw new ApiRequestError(data?.error ?? `Request failed (${res.status}).`, res.status, data?.code ?? "HTTP", data?.details);
   return data as T;
 }
 
@@ -29,6 +32,8 @@ export const api = {
   listFavoriteGroups: () => request<string[]>("GET", "/api/favorite-groups"),
   createFavoriteGroup: (name: string) => request<string>("POST", "/api/favorite-groups", { name }),
   listFavoriteVehicles: () => request<FavoriteVehicle[]>("GET", "/api/favorites"),
+  exportFavoriteBackup: () => request<FavoriteVehicleBackup>("GET", "/api/favorites/export"),
+  importFavoriteBackup: (backup: unknown) => request<FavoriteVehicleImportResult>("POST", "/api/favorites/import", backup),
   saveFavoriteVehicle: (favorite: FavoriteVehicle) => request<FavoriteVehicle>("PUT", "/api/favorites", favorite),
   deleteFavoriteVehicle: (favorite: FavoriteVehicle) => request<void>("DELETE", "/api/favorites", favorite),
   getBuild: (id: number) => request<BuildDto>("GET", `/api/builds/${id}`),

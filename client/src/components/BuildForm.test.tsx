@@ -19,6 +19,9 @@ describe("BuildForm vehicle search", () => {
     onToggleFavorite: (favorite: FavoriteVehicle, isFavorite: boolean) => Promise<void> = async () => {},
     favoriteGroups: string[] = ["Favorites"],
     onCreateFavoriteGroup: (name: string) => Promise<string | null> = async name => name.trim(),
+    favoriteBackupReport: { kind: "success" | "error"; message: string; details?: string[] } | null = null,
+    onExportFavorites: () => Promise<void> = async () => {},
+    onImportFavorites: (file: File) => Promise<void> = async () => {},
   ) => {
     act(() => {
       root.render(
@@ -26,8 +29,11 @@ describe("BuildForm vehicle search", () => {
           config={config}
           favorites={favorites}
           favoriteGroups={favoriteGroups}
+          favoriteBackupReport={favoriteBackupReport}
           onToggleFavorite={onToggleFavorite}
           onCreateFavoriteGroup={onCreateFavoriteGroup}
+          onExportFavorites={onExportFavorites}
+          onImportFavorites={onImportFavorites}
           hasDrawings={false}
           disabled={false}
           onChange={onChange}
@@ -171,5 +177,37 @@ describe("BuildForm vehicle search", () => {
       { make: "Honda", model: "Civic", year: 2024, groupName: "Track cars" },
       true,
     );
+  });
+
+  it("offers JSON backup controls and reports import validation errors", async () => {
+    container = document.createElement("div");
+    root = createRoot(container);
+    const onExportFavorites = vi.fn().mockResolvedValue(undefined);
+    const onImportFavorites = vi.fn().mockResolvedValue(undefined);
+    renderForm(
+      defaultConfig(),
+      () => {},
+      [],
+      async () => {},
+      ["Favorites"],
+      async name => name,
+      { kind: "error", message: "The favorites file has invalid entries.", details: ["favorites[1].year: Choose a model year."] },
+      onExportFavorites,
+      onImportFavorites,
+    );
+
+    const exportButton = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Download JSON backup")!;
+    await act(async () => { exportButton.click(); await Promise.resolve(); });
+    expect(onExportFavorites).toHaveBeenCalledOnce();
+
+    const file = new File(["{}"], "backup.json", { type: "application/json" });
+    const input = container.querySelector<HTMLInputElement>("#favorite-backup-file")!;
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    await act(async () => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(onImportFavorites).toHaveBeenCalledWith(file);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("favorites[1].year");
   });
 });

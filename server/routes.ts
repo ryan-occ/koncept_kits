@@ -3,7 +3,10 @@ import { z } from "zod";
 import { AiError } from "./ai";
 import { Studio, StudioError } from "./studio";
 import { CAR_DB, getHondaFactoryVariant } from "../shared/catalog";
-import { BuildConfigSchema, DRAWING_VIEWS, PART_IDS, RENDER_ANGLES, partKey, type DrawingKey, type FavoriteVehicle, type PartId } from "../shared/types";
+import {
+  BuildConfigSchema, DRAWING_VIEWS, favoriteVehicleKey, PART_IDS, RENDER_ANGLES, partKey,
+  type DrawingKey, type FavoriteVehicle, type FavoriteVehicleBackup, type PartId,
+} from "../shared/types";
 
 const Name = z.string().trim().min(1).max(80);
 const CreateBody = z.object({ name: Name, config: BuildConfigSchema }).strict();
@@ -26,8 +29,104 @@ const FavoriteVehicleBody = z.object({
   }
 });
 const FavoriteGroupBody = z.object({ name: z.string().trim().min(1).max(40) }).strict();
+const FavoriteGroupName = z.string().trim().min(1).max(40);
+const FavoriteBackupMetadata = z.object({
+  format: z.literal("vanguard-draft-favorites"),
+  version: z.literal(1),
+  exportedAt: z.string().datetime(),
+});
 
 const favoriteVehicle = (input: unknown): FavoriteVehicle => FavoriteVehicleBody.parse(input);
+
+class FavoriteBackupValidationError extends Error {
+  constructor(readonly details: string[]) {
+    super("The favorites file has invalid entries. Nothing was imported.");
+  }
+}
+
+function validateFavoriteBackup(input: unknown): Omit<FavoriteVehicleBackup, "exportedAt"> {
+  const details: string[] = [];
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new FavoriteBackupValidationError(["backup: Expected a JSON object."]);
+  }
+  const rawBackup = input as Record<string, unknown>;
+  const allowedKeys = new Set(["format", "version", "exportedAt", "groups", "favorites"]);
+  for (const key of Object.keys(rawBackup)) {
+    if (!allowedKeys.has(key)) details.push(`${key}: is not a recognized backup field.`);
+  }
+  const metadata = FavoriteBackupMetadata.safeParse(rawBackup);
+  if (!metadata.success) {
+    details.push(...metadata.error.issues.map(issue =>
+      `${issue.path.length ? issue.path.join(".") : "backup"}: ${issue.message}`,
+    ));
+  }
+
+  const rawGroups = rawBackup.groups;
+  if (!Array.isArray(rawGroups)) details.push("groups: Expected an array of group names.");
+  else if (rawGroups.length === 0) details.push("groups: Include at least one group.");
+  else if (rawGroups.length > 1000) details.push("groups: Backups may contain at most 1,000 groups.");
+
+  const rawFavorites = rawBackup.favorites;
+  if (!Array.isArray(rawFavorites)) details.push("favorites: Expected an array of vehicles.");
+  else if (rawFavorites.length > 10_000) details.push("favorites: Backups may contain at most 10,000 vehicles.");
+
+  const groupsByKey = new Map<string, string>();
+  if (Array.isArray(rawGroups)) {
+    rawGroups.forEach((entry, index) => {
+      const parsed = FavoriteGroupName.safeParse(entry);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) details.push(`groups[${index}]: ${issue.message}`);
+        return;
+      }
+      const key = parsed.data.toLocaleLowerCase();
+      if (groupsByKey.has(key)) {
+        details.push(`groups[${index}]: duplicates "${groupsByKey.get(key)}" (group names must be unique).`);
+      } else {
+        groupsByKey.set(key, parsed.data);
+      }
+    });
+  }
+
+  const favorites: FavoriteVehicle[] = [];
+  const vehicleIndexes = new Map<string, number>();
+  if (Array.isArray(rawFavorites)) {
+    rawFavorites.forEach((entry, index) => {
+      const parsed = FavoriteVehicleBody.safeParse(entry);
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) {
+          const fieldPath = issue.path.length ? `.${issue.path.join(".")}` : "";
+          details.push(`favorites[${index}]${fieldPath}: ${issue.message}`);
+        }
+        return;
+      }
+
+      const key = favoriteVehicleKey(parsed.data);
+      const duplicateIndex = vehicleIndexes.get(key);
+      if (duplicateIndex !== undefined) {
+        details.push(`favorites[${index}]: duplicates the vehicle in favorites[${duplicateIndex}].`);
+        return;
+      }
+      vehicleIndexes.set(key, index);
+
+      const groupKey = (parsed.data.groupName ?? "Favorites").toLocaleLowerCase();
+      const groupName = groupsByKey.get(groupKey);
+      if (!groupName) {
+        details.push(`favorites[${index}].groupName: does not match any group in this backup.`);
+        return;
+      }
+      favorites.push({ ...parsed.data, groupName });
+    });
+  }
+
+  if (details.length) throw new FavoriteBackupValidationError(details);
+  return {
+    format: metadata.data!.format,
+    version: metadata.data!.version,
+    groups: [...groupsByKey.values()],
+    favorites,
+  };
+}
+
 async function favoriteInExistingGroup(studio: Studio, input: unknown): Promise<FavoriteVehicle> {
   const favorite = favoriteVehicle(input);
   const groupName = favorite.groupName ?? "Favorites";
@@ -65,6 +164,21 @@ export function apiRouter(studio: Studio) {
   router.post("/favorite-groups", wrap(async (req, res) =>
     res.status(201).json(await studio.store.createFavoriteGroup(FavoriteGroupBody.parse(req.body).name)),
   ));
+  router.get("/favorites/export", wrap(async (_req, res) => {
+    const backup: FavoriteVehicleBackup = {
+      format: "vanguard-draft-favorites",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      groups: await studio.store.listFavoriteGroups(),
+      favorites: await studio.store.listFavoriteVehicles(),
+    };
+    res.json(backup);
+  }));
+  router.post("/favorites/import", wrap(async (req, res) => {
+    const backup = validateFavoriteBackup(req.body);
+    const result = await studio.store.importFavoriteBundle(backup.groups, backup.favorites);
+    res.json(result);
+  }));
   router.get("/favorites", wrap(async (_req, res) => res.json(await studio.store.listFavoriteVehicles())));
   router.put("/favorites", wrap(async (req, res) =>
     res.status(201).json(await studio.store.saveFavoriteVehicle(await favoriteInExistingGroup(studio, req.body))),
@@ -133,6 +247,8 @@ export function apiRouter(studio: Studio) {
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.issues.map(i => `${i.path.join(".") || "body"}: ${i.message}`).join("; "), code: "INVALID" });
+    } else if (error instanceof FavoriteBackupValidationError) {
+      res.status(400).json({ error: error.message, code: "INVALID_FAVORITE_BACKUP", details: error.details });
     } else if (error instanceof StudioError || error instanceof AiError) {
       res.status(error.status).json({ error: error.message, code: error.code });
     } else {

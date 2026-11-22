@@ -4,7 +4,9 @@
  * Images live in Postgres as bytea — no object-storage sidecar needed.
  */
 import pg from "pg";
-import { favoriteVehicleKey, type BuildConfig, type DrawingKey, type FavoriteVehicle, type RenderAngle } from "../shared/types";
+import {
+  favoriteVehicleKey, type BuildConfig, type DrawingKey, type FavoriteVehicle, type FavoriteVehicleImportResult, type RenderAngle,
+} from "../shared/types";
 import type { PartSpec } from "./domain/part-specs";
 
 export interface BuildRow {
@@ -63,6 +65,7 @@ export interface Store {
   listFavoriteVehicles(): Promise<FavoriteVehicle[]>;
   saveFavoriteVehicle(favorite: FavoriteVehicle): Promise<FavoriteVehicle>;
   deleteFavoriteVehicle(favorite: FavoriteVehicle): Promise<boolean>;
+  importFavoriteBundle(groups: string[], favorites: FavoriteVehicle[]): Promise<FavoriteVehicleImportResult>;
 
   /** Replaces any existing set (and its renders) for the build. */
   createDrawingSet(buildId: number, configSignature: string): Promise<DrawingSetRow>;
@@ -149,6 +152,11 @@ export class MemoryStore implements Store {
     const existing = this.favoriteVehicles.get(key);
     if (!existing || (existing.groupName ?? "Favorites") !== (favorite.groupName ?? "Favorites")) return false;
     return this.favoriteVehicles.delete(key);
+  }
+  async importFavoriteBundle(groups: string[], favorites: FavoriteVehicle[]) {
+    for (const name of groups) await this.createFavoriteGroup(name);
+    for (const favorite of favorites) await this.saveFavoriteVehicle(favorite);
+    return { importedCount: favorites.length, groups: await this.listFavoriteGroups(), favorites: await this.listFavoriteVehicles() };
   }
   private dropSet(setId: number) {
     this.sets.delete(setId);
@@ -347,6 +355,43 @@ export class PostgresStore implements Store {
       [favorite.make, favorite.model, favorite.year, favorite.trim ?? "", favorite.groupName ?? "Favorites"],
     );
     return rows.length > 0;
+  }
+  async importFavoriteBundle(groups: string[], favorites: FavoriteVehicle[]): Promise<FavoriteVehicleImportResult> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const canonicalGroups = new Map<string, string>();
+      for (const name of groups) {
+        await client.query("INSERT INTO favorite_groups (name) VALUES ($1) ON CONFLICT DO NOTHING", [name]);
+        const { rows } = await client.query("SELECT name FROM favorite_groups WHERE lower(name) = lower($1)", [name]);
+        if (!rows[0]) throw new Error("Unable to save favorite group.");
+        canonicalGroups.set(name.toLocaleLowerCase(), rows[0].name as string);
+      }
+      for (const favorite of favorites) {
+        const groupName = canonicalGroups.get((favorite.groupName ?? "Favorites").toLocaleLowerCase());
+        if (!groupName) throw new Error("Unable to resolve imported favorite group.");
+        await client.query(
+          `INSERT INTO favorite_vehicles (make, model, year, trim, group_name) VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (make, model, year, trim) DO UPDATE SET group_name = EXCLUDED.group_name`,
+          [favorite.make, favorite.model, favorite.year, favorite.trim ?? "", groupName],
+        );
+      }
+      const [groupRows, favoriteRows] = await Promise.all([
+        client.query("SELECT name FROM favorite_groups ORDER BY name"),
+        client.query("SELECT make, model, year, trim, group_name FROM favorite_vehicles ORDER BY group_name, make, model, year, trim"),
+      ]);
+      await client.query("COMMIT");
+      return {
+        importedCount: favorites.length,
+        groups: groupRows.rows.map(row => row.name as string),
+        favorites: favoriteRows.rows.map(favoriteVehicle),
+      };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   async createDrawingSet(buildId: number, configSignature: string) {
     const client = await this.pool.connect();

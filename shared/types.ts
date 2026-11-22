@@ -123,6 +123,20 @@ export interface FavoriteVehicle {
   groupName?: string;
 }
 
+export interface FavoriteVehicleBackup {
+  format: "vanguard-draft-favorites";
+  version: 1;
+  exportedAt: string;
+  groups: string[];
+  favorites: FavoriteVehicle[];
+}
+
+export interface FavoriteVehicleImportResult {
+  importedCount: number;
+  groups: string[];
+  favorites: FavoriteVehicle[];
+}
+
 export function favoriteVehicleKey(favorite: FavoriteVehicle): string {
   return JSON.stringify([favorite.make, favorite.model, favorite.year, favorite.trim ?? ""]);
 }

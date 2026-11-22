@@ -72,13 +72,17 @@ function SearchableSelector({ id, value, options, placeholder, onSelect }: {
 }
 
 export function BuildForm({
-  config, favorites, favoriteGroups, onToggleFavorite, onCreateFavoriteGroup, hasDrawings, disabled, onChange, onNext,
+  config, favorites, favoriteGroups, favoriteBackupReport, onToggleFavorite, onCreateFavoriteGroup,
+  onExportFavorites, onImportFavorites, hasDrawings, disabled, onChange, onNext,
 }: {
   config: BuildConfig;
   favorites: FavoriteVehicle[];
   favoriteGroups: string[];
+  favoriteBackupReport: { kind: "success" | "error"; message: string; details?: string[] } | null;
   onToggleFavorite: (favorite: FavoriteVehicle, isFavorite: boolean) => Promise<void>;
   onCreateFavoriteGroup: (name: string) => Promise<string | null>;
+  onExportFavorites: () => Promise<void>;
+  onImportFavorites: (file: File) => Promise<void>;
   hasDrawings: boolean;
   disabled: boolean;
   onChange: (config: BuildConfig) => void;
@@ -95,6 +99,7 @@ export function BuildForm({
   const [selectedGroup, setSelectedGroup] = useState("Favorites");
   const [newGroupName, setNewGroupName] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [favoriteBackupBusy, setFavoriteBackupBusy] = useState<"idle" | "exporting" | "importing">("idle");
   const currentFavorite: FavoriteVehicle = {
     make: config.make,
     model: config.model,
@@ -221,6 +226,56 @@ export function BuildForm({
             </div>
           </div>
         </div>
+
+        <div className="grid">
+          <Field label="Export saved vehicles">
+            <button
+              type="button"
+              className="btn"
+              disabled={favoriteBackupBusy !== "idle"}
+              onClick={async () => {
+                setFavoriteBackupBusy("exporting");
+                try {
+                  await onExportFavorites();
+                } finally {
+                  setFavoriteBackupBusy("idle");
+                }
+              }}
+            >
+              {favoriteBackupBusy === "exporting" ? "Preparing backup…" : "Download JSON backup"}
+            </button>
+          </Field>
+          <Field label="Import saved vehicles" id="favorite-backup-file">
+            <input
+              id="favorite-backup-file"
+              type="file"
+              accept=".json,application/json"
+              disabled={favoriteBackupBusy !== "idle"}
+              onChange={async event => {
+                const input = event.currentTarget;
+                const file = input.files?.[0];
+                if (!file) return;
+                setFavoriteBackupBusy("importing");
+                try {
+                  await onImportFavorites(file);
+                } finally {
+                  setFavoriteBackupBusy("idle");
+                  input.value = "";
+                }
+              }}
+            />
+          </Field>
+        </div>
+        {favoriteBackupBusy === "importing" && <p className="hint" role="status">Validating and importing backup…</p>}
+        {favoriteBackupReport?.kind === "success" && <p className="hint" role="status">{favoriteBackupReport.message}</p>}
+        {favoriteBackupReport?.kind === "error" && (
+          <div className="banner error" role="alert">
+            <p>{favoriteBackupReport.message}</p>
+            {favoriteBackupReport.details && (
+              <ul>{favoriteBackupReport.details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}</ul>
+            )}
+          </div>
+        )}
 
         <div className="grid">
           <Field label="Saved vehicles" id="favorite-vehicle">

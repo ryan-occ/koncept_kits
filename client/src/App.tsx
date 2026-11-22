@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { favoriteVehicleKey, type BuildConfig, type BuildDto, type BuildSummaryDto, type FavoriteVehicle, type UsageDto } from "../../shared/types";
 import { defaultBuildName, defaultConfig, syncBuildNameWithVehicle } from "../../shared/defaults";
-import { api } from "./api";
+import { ApiRequestError, api } from "./api";
 import { Sidebar } from "./components/Sidebar";
 import { BuildForm } from "./components/BuildForm";
 import { DrawingsStep } from "./components/DrawingsStep";
@@ -37,6 +37,7 @@ export function App() {
   const [usage, setUsage] = useState<UsageDto | null>(null);
   const [favoriteVehicles, setFavoriteVehicles] = useState<FavoriteVehicle[]>([]);
   const [favoriteGroups, setFavoriteGroups] = useState<string[]>([]);
+  const [favoriteBackupReport, setFavoriteBackupReport] = useState<{ kind: "success" | "error"; message: string; details?: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "pending" | "saving" | "saved">("idle");
   const pendingPatch = useRef<{ name?: string; config?: BuildConfig } | null>(null);
@@ -106,6 +107,49 @@ export function App() {
     } catch (e) {
       setError(errorText(e));
       return null;
+    }
+  };
+
+  const exportFavoriteBackup = async () => {
+    setFavoriteBackupReport(null);
+    try {
+      const backup = await api.exportFavoriteBackup();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `vanguard-draft-favorites-${backup.exportedAt.slice(0, 10)}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setFavoriteBackupReport({ kind: "success", message: "Favorite vehicles and groups were exported to a JSON backup." });
+    } catch (e) {
+      setFavoriteBackupReport({ kind: "error", message: errorText(e) });
+    }
+  };
+
+  const importFavoriteBackup = async (file: File) => {
+    setFavoriteBackupReport(null);
+    let backup: unknown;
+    try {
+      backup = JSON.parse(await file.text());
+    } catch {
+      setFavoriteBackupReport({ kind: "error", message: "This file is not valid JSON. Nothing was imported." });
+      return;
+    }
+    try {
+      const result = await api.importFavoriteBackup(backup);
+      setFavoriteVehicles(result.favorites);
+      setFavoriteGroups(result.groups);
+      const noun = result.importedCount === 1 ? "vehicle" : "vehicles";
+      setFavoriteBackupReport({
+        kind: "success",
+        message: `Imported ${result.importedCount} ${noun}. Matching saved vehicles were updated; other saved vehicles were kept.`,
+      });
+    } catch (e) {
+      setFavoriteBackupReport({
+        kind: "error",
+        message: e instanceof Error ? e.message : String(e),
+        details: e instanceof ApiRequestError ? e.details : undefined,
+      });
     }
   };
 
@@ -277,8 +321,11 @@ export function App() {
                 config={build.config}
                 favorites={favoriteVehicles}
                 favoriteGroups={favoriteGroups}
+                favoriteBackupReport={favoriteBackupReport}
                 onToggleFavorite={toggleFavoriteVehicle}
                 onCreateFavoriteGroup={createFavoriteGroup}
+                onExportFavorites={exportFavoriteBackup}
+                onImportFavorites={importFavoriteBackup}
                 hasDrawings={!!build.drawingSet}
                 disabled={jobRunning}
                 onChange={config => queueSave({ config })}
