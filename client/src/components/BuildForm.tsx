@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   BODY_STYLE_LABELS, CAR_DB, CATEGORY_KIT_STYLES, CF_MATERIALS, PAINTS, RIM_COLORS, RIM_STYLES,
   SPOILER_LABELS, WING_MOUNTING_LABELS, getBodyStyleChoices, getHondaFactoryVariant, getHondaFactoryVariants, getValidMountings,
@@ -12,6 +12,62 @@ function Field({ label, children, id }: { label: string; children: ReactNode; id
       {id ? <label className="label" htmlFor={id}>{label}</label> : <span className="label">{label}</span>}
       {children}
     </div>
+  );
+}
+
+function filterOptions(options: string[], query: string) {
+  const search = query.trim().toLocaleLowerCase();
+  return search ? options.filter(option => option.toLocaleLowerCase().includes(search)) : options;
+}
+
+function SearchableSelector({ id, value, options, placeholder, onSelect }: {
+  id: string;
+  value: string;
+  options: string[];
+  placeholder: string;
+  onSelect: (value: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const filteredOptions = filterOptions(options, query === value ? "" : query);
+
+  useEffect(() => setQuery(value), [value]);
+
+  const updateQuery = (nextQuery: string) => {
+    setQuery(nextQuery);
+    const selected = options.find(option => option.toLocaleLowerCase() === nextQuery.trim().toLocaleLowerCase());
+    if (selected) onSelect(selected);
+  };
+
+  return (
+    <>
+      <input
+        id={id}
+        type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        autoComplete="off"
+        list={`${id}-options`}
+        value={query}
+        placeholder={placeholder}
+        onChange={event => updateQuery(event.target.value)}
+        onKeyDown={event => {
+          if (event.key !== "Enter") return;
+          const matches = filterOptions(options, event.currentTarget.value);
+          const alreadySelected = options.some(option =>
+            option.toLocaleLowerCase() === event.currentTarget.value.trim().toLocaleLowerCase(),
+          );
+          if (!alreadySelected && matches.length === 1) {
+            event.preventDefault();
+            updateQuery(matches[0]!);
+          }
+        }}
+        onBlur={() => setQuery(value)}
+      />
+      <datalist id={`${id}-options`}>
+        {filteredOptions.map(option => <option key={option} value={option} />)}
+      </datalist>
+      {query !== value && filteredOptions.length === 0 && <span className="hint" role="status">No matches. Try another search.</span>}
+    </>
   );
 }
 
@@ -57,14 +113,22 @@ export function BuildForm({ config, hasDrawings, disabled, onChange, onNext }: {
       <fieldset disabled={disabled} style={{ border: "none", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
         <div className="grid">
           <Field label="Make" id="make">
-            <select id="make" value={config.make} onChange={e => pickVehicle(e.target.value)}>
-              {makes.map(m => <option key={m}>{m}</option>)}
-            </select>
+            <SearchableSelector
+              id="make"
+              value={config.make}
+              options={makes}
+              placeholder="Search makes"
+              onSelect={make => pickVehicle(make)}
+            />
           </Field>
           <Field label="Model" id="model">
-            <select id="model" value={config.model} onChange={e => pickVehicle(config.make, e.target.value)}>
-              {models.map(m => <option key={m}>{m}</option>)}
-            </select>
+            <SearchableSelector
+              id="model"
+              value={config.model}
+              options={models}
+              placeholder="Search models"
+              onSelect={model => pickVehicle(config.make, model)}
+            />
           </Field>
           <Field label="Year" id="year">
             <select id="year" value={config.year} onChange={e => onChange(withVehicle(config, config.make, config.model, Number(e.target.value)))}>
