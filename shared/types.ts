@@ -115,6 +115,17 @@ export const BuildConfigSchema = BuildConfigBaseSchema.superRefine((config, ctx)
 export type BuildConfig = z.infer<typeof BuildConfigSchema>;
 export type RearAero = BuildConfig["rearAero"];
 
+export interface FavoriteVehicle {
+  make: string;
+  model: string;
+  year: number;
+  trim?: string;
+}
+
+export function favoriteVehicleKey(favorite: FavoriteVehicle): string {
+  return JSON.stringify([favorite.make, favorite.model, favorite.year, favorite.trim ?? ""]);
+}
+
 export interface DrawingDto {
   view: DrawingView;
   revision: number;

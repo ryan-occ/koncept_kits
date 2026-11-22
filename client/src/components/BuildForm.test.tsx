@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultConfig, withVehicle } from "../../../shared/defaults";
-import type { BuildConfig } from "../../../shared/types";
+import { favoriteVehicleKey, type BuildConfig, type FavoriteVehicle } from "../../../shared/types";
 import { BuildForm } from "./BuildForm";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -12,10 +12,23 @@ describe("BuildForm vehicle search", () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  const renderForm = (config: BuildConfig, onChange: (next: BuildConfig) => void) => {
+  const renderForm = (
+    config: BuildConfig,
+    onChange: (next: BuildConfig) => void,
+    favorites: FavoriteVehicle[] = [],
+    onToggleFavorite: (favorite: FavoriteVehicle, isFavorite: boolean) => Promise<void> = async () => {},
+  ) => {
     act(() => {
       root.render(
-        <BuildForm config={config} hasDrawings={false} disabled={false} onChange={onChange} onNext={() => {}} />,
+        <BuildForm
+          config={config}
+          favorites={favorites}
+          onToggleFavorite={onToggleFavorite}
+          hasDrawings={false}
+          disabled={false}
+          onChange={onChange}
+          onNext={() => {}}
+        />,
       );
     });
   };
@@ -100,5 +113,36 @@ describe("BuildForm vehicle search", () => {
 
     expect(config.model).toBe("Accord");
     expect(config.year).toBe(2025);
+  });
+
+  it("loads a saved vehicle into the build and lets users toggle its favorite", async () => {
+    container = document.createElement("div");
+    root = createRoot(container);
+    let config = defaultConfig();
+    const onChange = (next: BuildConfig) => { config = next; };
+    const favorite = { make: "Honda", model: "Civic", year: 2024, trim: "civic-type-r" };
+    const onToggleFavorite = vi.fn().mockResolvedValue(undefined);
+    renderForm(config, onChange, [favorite], onToggleFavorite);
+
+    const saveCurrent = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "☆ Save vehicle")!;
+    await act(async () => { saveCurrent.click(); await Promise.resolve(); });
+    expect(onToggleFavorite).toHaveBeenCalledWith(
+      { make: "BMW", model: "M4", year: config.year },
+      false,
+    );
+    onToggleFavorite.mockClear();
+
+    const picker = container.querySelector<HTMLSelectElement>("#favorite-vehicle")!;
+    expect(Array.from(picker.options, option => option.textContent)).toContain("2024 Honda Civic — Type R");
+    act(() => {
+      picker.value = favoriteVehicleKey(favorite);
+      picker.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(config).toMatchObject({ make: "Honda", model: "Civic", year: 2024, trim: "civic-type-r", bodyStyle: "hatchback" });
+
+    renderForm(config, onChange, [favorite], onToggleFavorite);
+    const removeCurrent = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "★ Saved vehicle")!;
+    await act(async () => { removeCurrent.click(); await Promise.resolve(); });
+    expect(onToggleFavorite).toHaveBeenCalledWith(favorite, true);
   });
 });

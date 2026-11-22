@@ -2,7 +2,8 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { z } from "zod";
 import { AiError } from "./ai";
 import { Studio, StudioError } from "./studio";
-import { BuildConfigSchema, DRAWING_VIEWS, PART_IDS, RENDER_ANGLES, partKey, type DrawingKey, type PartId } from "../shared/types";
+import { CAR_DB, getHondaFactoryVariant } from "../shared/catalog";
+import { BuildConfigSchema, DRAWING_VIEWS, PART_IDS, RENDER_ANGLES, partKey, type DrawingKey, type FavoriteVehicle, type PartId } from "../shared/types";
 
 const Name = z.string().trim().min(1).max(80);
 const CreateBody = z.object({ name: Name, config: BuildConfigSchema }).strict();
@@ -10,6 +11,21 @@ const UpdateBody = z.object({ name: Name.optional(), config: BuildConfigSchema.o
 const DRAWING_KEYS = [...DRAWING_VIEWS, ...PART_IDS.map(partKey)] as [DrawingKey, ...DrawingKey[]];
 const RedrawBody = z.object({ views: z.array(z.enum(DRAWING_KEYS)).min(1), notes: z.string().trim().min(1).max(1500) }).strict();
 const RenderBody = z.object({ angles: z.array(z.enum(RENDER_ANGLES)).min(1) }).strict();
+const FavoriteVehicleBody = z.object({
+  make: z.string().trim().min(1).max(60),
+  model: z.string().trim().min(1).max(80),
+  year: z.number().int().min(1900).max(2100),
+  trim: z.string().trim().min(1).max(40).optional(),
+}).strict().superRefine((favorite, ctx) => {
+  if (!CAR_DB[favorite.make]?.[favorite.model]?.includes(favorite.year)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["year"], message: "Choose a model year from the vehicle catalog." });
+  }
+  if (favorite.trim && !getHondaFactoryVariant(favorite.make, favorite.model, favorite.year, favorite.trim)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["trim"], message: "This factory variant is not available for the selected vehicle and year." });
+  }
+});
+
+const favoriteVehicle = (input: unknown): FavoriteVehicle => FavoriteVehicleBody.parse(input);
 
 type Handler = (req: Request, res: Response) => Promise<unknown>;
 const wrap = (handler: Handler) => (req: Request, res: Response, next: NextFunction) => {
@@ -35,6 +51,14 @@ export function apiRouter(studio: Studio) {
 
   router.get("/healthz", (_req, res) => { res.json({ ok: true }); });
   router.get("/usage", wrap(async (_req, res) => res.json(await studio.usage())));
+  router.get("/favorites", wrap(async (_req, res) => res.json(await studio.store.listFavoriteVehicles())));
+  router.put("/favorites", wrap(async (req, res) =>
+    res.status(201).json(await studio.store.saveFavoriteVehicle(favoriteVehicle(req.body))),
+  ));
+  router.delete("/favorites", wrap(async (req, res) => {
+    await studio.store.deleteFavoriteVehicle(favoriteVehicle(req.body));
+    res.status(204).end();
+  }));
 
   router.get("/builds", wrap(async (_req, res) => res.json(await studio.listBuilds())));
   router.post("/builds", wrap(async (req, res) => {

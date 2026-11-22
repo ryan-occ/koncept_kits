@@ -4,7 +4,7 @@
  * Images live in Postgres as bytea — no object-storage sidecar needed.
  */
 import pg from "pg";
-import type { BuildConfig, DrawingKey, RenderAngle } from "../shared/types";
+import { favoriteVehicleKey, type BuildConfig, type DrawingKey, type FavoriteVehicle, type RenderAngle } from "../shared/types";
 import type { PartSpec } from "./domain/part-specs";
 
 export interface BuildRow {
@@ -58,6 +58,9 @@ export interface Store {
   createBuild(name: string, config: BuildConfig): Promise<BuildRow>;
   updateBuild(id: number, patch: { name?: string; config?: BuildConfig }): Promise<BuildRow | null>;
   deleteBuild(id: number): Promise<boolean>;
+  listFavoriteVehicles(): Promise<FavoriteVehicle[]>;
+  saveFavoriteVehicle(favorite: FavoriteVehicle): Promise<FavoriteVehicle>;
+  deleteFavoriteVehicle(favorite: FavoriteVehicle): Promise<boolean>;
 
   /** Replaces any existing set (and its renders) for the build. */
   createDrawingSet(buildId: number, configSignature: string): Promise<DrawingSetRow>;
@@ -89,6 +92,7 @@ export class MemoryStore implements Store {
   private drawings: DrawingRow[] = [];
   private renders: RenderRow[] = [];
   private specs = new Map<number, PartSpecCache>();
+  private favoriteVehicles = new Map<string, FavoriteVehicle>();
   private usage: Array<{ kind: string; at: Date }> = [];
 
   async init() {}
@@ -115,6 +119,18 @@ export class MemoryStore implements Store {
     for (const set of [...this.sets.values()].filter(s => s.buildId === id)) this.dropSet(set.id);
     this.specs.delete(id);
     return existed;
+  }
+  async listFavoriteVehicles() {
+    return [...this.favoriteVehicles.values()].sort((a, b) =>
+      `${a.make} ${a.model} ${a.year} ${a.trim ?? ""}`.localeCompare(`${b.make} ${b.model} ${b.year} ${b.trim ?? ""}`),
+    );
+  }
+  async saveFavoriteVehicle(favorite: FavoriteVehicle) {
+    this.favoriteVehicles.set(favoriteVehicleKey(favorite), favorite);
+    return favorite;
+  }
+  async deleteFavoriteVehicle(favorite: FavoriteVehicle) {
+    return this.favoriteVehicles.delete(favoriteVehicleKey(favorite));
   }
   private dropSet(setId: number) {
     this.sets.delete(setId);
@@ -213,6 +229,14 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   output_tokens INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS favorite_vehicles (
+  make TEXT NOT NULL,
+  model TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  trim TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (make, model, year, trim)
+);
 `;
 
 type Row = Record<string, any>;
@@ -227,7 +251,12 @@ const drawing = (r: Row): DrawingRow => ({
 const render = (r: Row): RenderRow => ({
   id: r.id, buildId: r.build_id, setId: r.set_id, angle: r.angle, data: r.data ?? Buffer.alloc(0), mime: r.mime, createdAt: r.created_at,
 });
-
+const favoriteVehicle = (r: Row): FavoriteVehicle => ({
+  make: r.make,
+  model: r.model,
+  year: r.year,
+  ...(r.trim ? { trim: r.trim } : {}),
+});
 export class PostgresStore implements Store {
   readonly kind = "postgres" as const;
   private pool: pg.Pool;
@@ -262,6 +291,26 @@ export class PostgresStore implements Store {
   }
   async deleteBuild(id: number) {
     return (await this.pool.query("DELETE FROM builds WHERE id = $1", [id])).rowCount === 1;
+  }
+  async listFavoriteVehicles() {
+    return (await this.q("SELECT make, model, year, trim FROM favorite_vehicles ORDER BY make, model, year, trim"))
+      .map(favoriteVehicle);
+  }
+  async saveFavoriteVehicle(favorite: FavoriteVehicle) {
+    const [row] = await this.q(
+      `INSERT INTO favorite_vehicles (make, model, year, trim) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (make, model, year, trim) DO UPDATE SET trim = EXCLUDED.trim
+       RETURNING make, model, year, trim`,
+      [favorite.make, favorite.model, favorite.year, favorite.trim ?? ""],
+    );
+    return favoriteVehicle(row);
+  }
+  async deleteFavoriteVehicle(favorite: FavoriteVehicle) {
+    const rows = await this.q(
+      "DELETE FROM favorite_vehicles WHERE make = $1 AND model = $2 AND year = $3 AND trim = $4 RETURNING make",
+      [favorite.make, favorite.model, favorite.year, favorite.trim ?? ""],
+    );
+    return rows.length > 0;
   }
   async createDrawingSet(buildId: number, configSignature: string) {
     const client = await this.pool.connect();

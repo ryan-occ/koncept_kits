@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { BuildConfig, BuildDto, BuildSummaryDto, UsageDto } from "../../shared/types";
+import { favoriteVehicleKey, type BuildConfig, type BuildDto, type BuildSummaryDto, type FavoriteVehicle, type UsageDto } from "../../shared/types";
 import { defaultBuildName, defaultConfig, syncBuildNameWithVehicle } from "../../shared/defaults";
 import { api } from "./api";
 import { Sidebar } from "./components/Sidebar";
@@ -35,6 +35,7 @@ export function App() {
   const [build, setBuild] = useState<BuildDto | null>(null);
   const [step, setStep] = useState<Step>("build");
   const [usage, setUsage] = useState<UsageDto | null>(null);
+  const [favoriteVehicles, setFavoriteVehicles] = useState<FavoriteVehicle[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "pending" | "saving" | "saved">("idle");
   const pendingPatch = useRef<{ name?: string; config?: BuildConfig } | null>(null);
@@ -63,6 +64,30 @@ export function App() {
       .then(list => { if (list[0]) void open(list[0].id); })
       .catch(e => { setBuilds([]); setError(errorText(e)); });
   }, [refreshList, open]);
+
+  useEffect(() => {
+    api.listFavoriteVehicles()
+      .then(setFavoriteVehicles)
+      .catch(e => setError(errorText(e)));
+  }, []);
+
+  const toggleFavoriteVehicle = async (favorite: FavoriteVehicle, isFavorite: boolean) => {
+    setError(null);
+    try {
+      if (isFavorite) {
+        await api.deleteFavoriteVehicle(favorite);
+        const key = favoriteVehicleKey(favorite);
+        setFavoriteVehicles(current => current.filter(item => favoriteVehicleKey(item) !== key));
+      } else {
+        const saved = await api.saveFavoriteVehicle(favorite);
+        setFavoriteVehicles(current => current.some(item => favoriteVehicleKey(item) === favoriteVehicleKey(saved))
+          ? current
+          : [...current, saved].sort((a, b) => `${a.make} ${a.model} ${a.year}`.localeCompare(`${b.make} ${b.model} ${b.year}`)));
+      }
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
 
   // Save edits shortly after the user stops changing things; actions flush first.
   const flush = useCallback(async () => {
@@ -230,6 +255,8 @@ export function App() {
             {step === "build" && (
               <BuildForm
                 config={build.config}
+                favorites={favoriteVehicles}
+                onToggleFavorite={toggleFavoriteVehicle}
                 hasDrawings={!!build.drawingSet}
                 disabled={jobRunning}
                 onChange={config => queueSave({ config })}

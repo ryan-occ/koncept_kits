@@ -4,7 +4,7 @@ import {
   SPOILER_LABELS, WING_MOUNTING_LABELS, getBodyStyleChoices, getHondaFactoryVariant, getHondaFactoryVariants, getValidMountings,
 } from "../../../shared/catalog";
 import { aeroOptions, normalizeAero, withVehicle } from "../../../shared/defaults";
-import { PART_IDS, PART_LABELS, type BuildConfig } from "../../../shared/types";
+import { favoriteVehicleKey, PART_IDS, PART_LABELS, type BuildConfig, type FavoriteVehicle } from "../../../shared/types";
 
 function Field({ label, children, id }: { label: string; children: ReactNode; id?: string }) {
   return (
@@ -71,8 +71,10 @@ function SearchableSelector({ id, value, options, placeholder, onSelect }: {
   );
 }
 
-export function BuildForm({ config, hasDrawings, disabled, onChange, onNext }: {
+export function BuildForm({ config, favorites, onToggleFavorite, hasDrawings, disabled, onChange, onNext }: {
   config: BuildConfig;
+  favorites: FavoriteVehicle[];
+  onToggleFavorite: (favorite: FavoriteVehicle, isFavorite: boolean) => Promise<void>;
   hasDrawings: boolean;
   disabled: boolean;
   onChange: (config: BuildConfig) => void;
@@ -86,6 +88,14 @@ export function BuildForm({ config, hasDrawings, disabled, onChange, onNext }: {
     ? { options: [selectedVariant.bodyStyle], default: selectedVariant.bodyStyle }
     : getBodyStyleChoices(config.make, config.model);
   const factoryVariants = getHondaFactoryVariants(config.make, config.model, config.year);
+  const currentFavorite: FavoriteVehicle = {
+    make: config.make,
+    model: config.model,
+    year: config.year,
+    ...(config.trim ? { trim: config.trim } : {}),
+  };
+  const isFavorite = favorites.some(favorite => favoriteVehicleKey(favorite) === favoriteVehicleKey(currentFavorite));
+  const [savingFavorite, setSavingFavorite] = useState(false);
   const kits = CATEGORY_KIT_STYLES[config.category];
   const aero = aeroOptions(config);
   const rim = RIM_STYLES.find(r => r.id === config.rim.styleId) ?? RIM_STYLES[0]!;
@@ -96,6 +106,10 @@ export function BuildForm({ config, hasDrawings, disabled, onChange, onNext }: {
     const nextYears = CAR_DB[make]?.[nextModel] ?? [config.year];
     const year = nextYears.includes(config.year) ? config.year : nextYears[nextYears.length - 1]!;
     onChange(withVehicle(config, make, nextModel, year));
+  };
+
+  const pickFavorite = (favorite: FavoriteVehicle) => {
+    onChange(withVehicle({ ...config, trim: favorite.trim }, favorite.make, favorite.model, favorite.year));
   };
 
   return (
@@ -154,6 +168,51 @@ export function BuildForm({ config, hasDrawings, disabled, onChange, onNext }: {
               </select>
             </Field>
           )}
+        </div>
+
+        <div className="grid">
+          <Field label="Saved vehicles" id="favorite-vehicle">
+            <select
+              id="favorite-vehicle"
+              defaultValue=""
+              onChange={event => {
+                const favorite = favorites.find(item => favoriteVehicleKey(item) === event.target.value);
+                if (favorite) pickFavorite(favorite);
+                event.currentTarget.value = "";
+              }}
+            >
+              <option value="">Choose a favorite vehicle</option>
+              {favorites.map(favorite => {
+                const variantLabel = favorite.trim
+                  ? getHondaFactoryVariant(favorite.make, favorite.model, favorite.year, favorite.trim)?.label ?? favorite.trim
+                  : null;
+                return (
+                  <option key={favoriteVehicleKey(favorite)} value={favoriteVehicleKey(favorite)}>
+                    {favorite.year} {favorite.make} {favorite.model}{variantLabel ? ` — ${variantLabel}` : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </Field>
+          <div className="field">
+            <span className="label">Current vehicle</span>
+            <button
+              type="button"
+              className={`btn${isFavorite ? " ok" : ""}`}
+              aria-pressed={isFavorite}
+              disabled={savingFavorite}
+              onClick={async () => {
+                setSavingFavorite(true);
+                try {
+                  await onToggleFavorite(currentFavorite, isFavorite);
+                } finally {
+                  setSavingFavorite(false);
+                }
+              }}
+            >
+              {savingFavorite ? "Saving…" : isFavorite ? "★ Saved vehicle" : "☆ Save vehicle"}
+            </button>
+          </div>
         </div>
 
         <Field label="Kit style">

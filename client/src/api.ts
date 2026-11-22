@@ -1,4 +1,4 @@
-import type { BuildConfig, BuildDto, BuildSummaryDto, DrawingKey, RenderAngle, UsageDto } from "../../shared/types";
+import type { BuildConfig, BuildDto, BuildSummaryDto, DrawingKey, FavoriteVehicle, RenderAngle, UsageDto } from "../../shared/types";
 
 export class ApiRequestError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) {
@@ -26,6 +26,9 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 export const api = {
   usage: () => request<UsageDto>("GET", "/api/usage"),
   listBuilds: () => request<BuildSummaryDto[]>("GET", "/api/builds"),
+  listFavoriteVehicles: () => request<FavoriteVehicle[]>("GET", "/api/favorites"),
+  saveFavoriteVehicle: (favorite: FavoriteVehicle) => request<FavoriteVehicle>("PUT", "/api/favorites", favorite),
+  deleteFavoriteVehicle: (favorite: FavoriteVehicle) => request<void>("DELETE", "/api/favorites", favorite),
   getBuild: (id: number) => request<BuildDto>("GET", `/api/builds/${id}`),
   createBuild: (name: string, config: BuildConfig) => request<BuildDto>("POST", "/api/builds", { name, config }),
   updateBuild: (id: number, patch: { name?: string; config?: BuildConfig }) => request<BuildDto>("PATCH", `/api/builds/${id}`, patch),

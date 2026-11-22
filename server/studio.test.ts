@@ -47,6 +47,26 @@ async function drawAndWait(app: express.Express, studio: Studio, id: number) {
 }
 
 describe("drawing-first workflow", () => {
+  it("saves, reloads, and removes favorite catalog vehicles", async () => {
+    const { app } = setup();
+    const favorite = { make: "Honda", model: "Civic", year: 2024 };
+    const variantFavorite = { ...favorite, trim: "civic-type-r" };
+
+    expect((await request(app).get("/api/favorites")).body).toEqual([]);
+    const saved = await request(app).put("/api/favorites").send(favorite);
+    expect(saved.status).toBe(201);
+    expect(saved.body).toEqual(favorite);
+    expect((await request(app).put("/api/favorites").send(favorite)).status).toBe(201);
+    expect((await request(app).put("/api/favorites").send(variantFavorite)).status).toBe(201);
+    expect((await request(app).get("/api/favorites")).body).toEqual([favorite, variantFavorite]);
+
+    expect((await request(app).put("/api/favorites").send({ ...favorite, year: 1800 })).status).toBe(400);
+    expect((await request(app).delete("/api/favorites").send(favorite)).status).toBe(204);
+    expect((await request(app).get("/api/favorites")).body).toEqual([variantFavorite]);
+    expect((await request(app).delete("/api/favorites").send(variantFavorite)).status).toBe(204);
+    expect((await request(app).get("/api/favorites")).body).toEqual([]);
+  });
+
   it("stores a vehicle name and config together in the build and list", async () => {
     const { app } = setup();
     const build = await createBuild(app);
