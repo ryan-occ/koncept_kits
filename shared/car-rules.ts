@@ -514,10 +514,20 @@ const KNOWN_MODEL_BODY_STYLES: Record<string, BodyStyle> = {
   // Honda
   "Honda:Civic Type R (FL5)": "hatchback",
   "Honda:Civic Type R (FK8)": "hatchback",
+  "Honda:Civic Type R (EP3)": "hatchback",
+  "Honda:Civic Type R (FD2)": "sedan",
+  "Honda:Civic Type R (FK2)": "hatchback",
   "Honda:Civic Type R (EK9)": "hatchback",
   "Honda:S2000": "convertible",
+  "Honda:NSX (NA2)": "coupe",
+  "Honda:CR-Z": "coupe",
+  "Honda:Insight": "sedan",
+  "Honda:Element": "suv",
+  "Honda:Crosstour": "wagon",
+  "Honda:Passport": "suv",
   "Honda:Integra Type R (DC2)": "coupe",
   "Honda:Prelude (5th Gen)": "coupe",
+  "Honda:Prelude (6th Gen)": "coupe",
   // Volkswagen
   "Volkswagen:Golf R (Mk8)": "hatchback",
   "Volkswagen:Golf GTI (Mk8)": "hatchback",
@@ -669,6 +679,9 @@ export function validateBodyStyle(s: unknown): BodyStyle | undefined {
 // canonical style.
 const MODEL_VALID_BODY_STYLES: Record<string, ReadonlyArray<BodyStyle>> = {
   "Honda:Civic": ["sedan", "hatchback"],
+  "Honda:Civic Type R (EP3)": ["hatchback"],
+  "Honda:Civic Type R (FD2)": ["sedan"],
+  "Honda:Civic Type R (FK2)": ["hatchback"],
   "BMW:8 Series": ["coupe", "convertible"],
   "BMW:M8": ["coupe", "convertible"],
   "Ford:Mustang Dark Horse": ["coupe", "convertible"],
