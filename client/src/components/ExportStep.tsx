@@ -7,6 +7,16 @@ export function ExportStep({ build, onError }: { build: BuildDto; onError: (mess
   const currentRenders = build.renders.filter(r => r.current).length;
   const running = !!build.job && !build.job.done;
 
+  const downloadDirectly = () => {
+    const link = document.createElement("a");
+    link.href = `/api/builds/${build.id}/export`;
+    link.download = `${build.name.trim().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || `build-${build.id}`}-production.zip`;
+    link.hidden = true;
+    document.body.append(link);
+    link.click();
+    link.remove();
+  };
+
   const download = async () => {
     setBusy(true);
     onError(null);
@@ -19,7 +29,13 @@ export function ExportStep({ build, onError }: { build: BuildDto; onError: (mess
       link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
+      if (e instanceof TypeError) {
+        // Some preview proxies redirect binary fetches to a shield page, which
+        // fetch cannot follow cross-origin. Let the browser handle the download.
+        downloadDirectly();
+      } else {
+        onError(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       setBusy(false);
     }
