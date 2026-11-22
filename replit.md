@@ -14,10 +14,17 @@ Single-user car body-kit studio. **Draw first, render once:**
 
 ## Run on Replit
 
-1. Import this folder as a Replit app (Node.js). `.replit` runs `npm run dev` on port 5000.
-2. Add a **PostgreSQL** database in Replit — it sets `DATABASE_URL`. Tables are created on start.
-3. Add the secret **`OPENAI_API_KEY`**. Without it the app runs in mock mode (placeholder images, no cost).
-4. Deploy: Autoscale; build `npm ci && npm run build`, run `npm start` (already in `.replit`).
+1. Click **Run** to start the **Start application** workflow (`npm run dev`) on port 5000.
+   Express serves the API and Vite serves the React UI through the same port.
+2. This workspace has **PostgreSQL** configured through `DATABASE_URL`. Tables are created on start.
+3. `OPENAI_API_KEY` is not configured: the app currently runs in **mock mode**
+   (clearly labelled placeholder images, no AI charges). Real image generation requires an
+   OpenAI key in Replit Secrets and image/text model names available to that account.
+   Restart the workflow after changing secrets or model settings.
+4. For a fresh checkout, install dependencies with `npm ci`. The test runner uses Vitest 4
+   because the imported Vitest 3 dependency included a package blocked by the package security policy.
+5. Publishing configuration is present: Autoscale; build `npm ci && npm run build`, run
+   `npm start`. The app has not been published as part of workspace setup.
 
 ## Settings (Secrets / env)
 
