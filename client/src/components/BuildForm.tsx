@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   BODY_STYLE_LABELS, CAR_DB, CATEGORY_KIT_STYLES, CF_MATERIALS, PAINTS, RIM_COLORS, RIM_STYLES,
   SPOILER_LABELS, WING_MOUNTING_LABELS, getBodyStyleChoices, getHondaFactoryVariant, getHondaFactoryVariants, getValidMountings,
+  VEHICLE_MAKE_ALIASES, VEHICLE_MODEL_ALIASES,
 } from "../../../shared/catalog";
 import { aeroOptions, normalizeAero, withVehicle } from "../../../shared/defaults";
 import { favoriteVehicleKey, PART_IDS, PART_LABELS, type BuildConfig, type FavoriteVehicle } from "../../../shared/types";
@@ -15,27 +16,39 @@ function Field({ label, children, id }: { label: string; children: ReactNode; id
   );
 }
 
-function filterOptions(options: string[], query: string) {
-  const search = query.trim().toLocaleLowerCase();
-  return search ? options.filter(option => option.toLocaleLowerCase().includes(search)) : options;
+function normalizeSearch(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
-function SearchableSelector({ id, value, options, placeholder, onSelect }: {
+function filterOptions(options: string[], query: string, aliases: Readonly<Record<string, readonly string[]>> = {}) {
+  const search = normalizeSearch(query.trim());
+  return search ? options.filter(option => (
+    normalizeSearch(option).includes(search)
+    || (aliases[option] ?? []).some(alias => normalizeSearch(alias).includes(search))
+  )) : options;
+}
+
+function SearchableSelector({ id, value, options, placeholder, aliases, onSelect }: {
   id: string;
   value: string;
   options: string[];
   placeholder: string;
+  aliases?: Readonly<Record<string, readonly string[]>>;
   onSelect: (value: string) => void;
 }) {
   const [query, setQuery] = useState(value);
-  const filteredOptions = filterOptions(options, query === value ? "" : query);
+  const filteredOptions = filterOptions(options, query === value ? "" : query, aliases);
 
   useEffect(() => setQuery(value), [value]);
 
   const updateQuery = (nextQuery: string) => {
     setQuery(nextQuery);
-    const selected = options.find(option => option.toLocaleLowerCase() === nextQuery.trim().toLocaleLowerCase());
-    if (selected) onSelect(selected);
+    const normalizedQuery = normalizeSearch(nextQuery.trim());
+    const exactMatches = options.filter(option => (
+      normalizeSearch(option) === normalizedQuery
+      || (aliases?.[option] ?? []).some(alias => normalizeSearch(alias) === normalizedQuery)
+    ));
+    if (exactMatches.length === 1) onSelect(exactMatches[0]!);
   };
 
   return (
@@ -52,10 +65,13 @@ function SearchableSelector({ id, value, options, placeholder, onSelect }: {
         onChange={event => updateQuery(event.target.value)}
         onKeyDown={event => {
           if (event.key !== "Enter") return;
-          const matches = filterOptions(options, event.currentTarget.value);
-          const alreadySelected = options.some(option =>
-            option.toLocaleLowerCase() === event.currentTarget.value.trim().toLocaleLowerCase(),
-          );
+          const matches = filterOptions(options, event.currentTarget.value, aliases);
+          const alreadySelected = options.some(option => (
+            normalizeSearch(option) === normalizeSearch(event.currentTarget.value.trim())
+            || (aliases?.[option] ?? []).some(alias =>
+              normalizeSearch(alias) === normalizeSearch(event.currentTarget.value.trim()),
+            )
+          ));
           if (!alreadySelected && matches.length === 1) {
             event.preventDefault();
             updateQuery(matches[0]!);
@@ -148,6 +164,7 @@ export function BuildForm({
               id="make"
               value={config.make}
               options={makes}
+              aliases={VEHICLE_MAKE_ALIASES}
               placeholder="Search makes"
               onSelect={make => pickVehicle(make)}
             />
@@ -157,6 +174,7 @@ export function BuildForm({
               id="model"
               value={config.model}
               options={models}
+              aliases={VEHICLE_MODEL_ALIASES[config.make]}
               placeholder="Search models"
               onSelect={model => pickVehicle(config.make, model)}
             />

@@ -210,4 +210,41 @@ describe("BuildForm vehicle search", () => {
     expect(onImportFavorites).toHaveBeenCalledWith(file);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("favorites[1].year");
   });
+
+  it("finds make and model aliases while keeping canonical selections", () => {
+    container = document.createElement("div");
+    root = createRoot(container);
+    let config = withVehicle(defaultConfig(), "Mazda", "Mazda 3", 2025);
+    const onChange = (next: BuildConfig) => { config = next; };
+    renderForm(config, onChange);
+
+    typeIn("make", "VW");
+    expect(config.make).toBe("Volkswagen");
+    expect(config.model).toBe("Amarok");
+
+    renderForm(config, onChange);
+    typeIn("model", "Golf R");
+    expect(config.model).toBe("Golf R (Mk8)");
+
+    renderForm(withVehicle(defaultConfig(), "Mazda", "Mazda 3", 2025), onChange);
+    typeIn("model", "Miata");
+    expect(config.make).toBe("Mazda");
+    expect(config.model).toBe("MX-5 Miata");
+    expect(config.year).toBe(2025);
+  });
+
+  it("matches punctuation-free model abbreviations to the canonical option", () => {
+    container = document.createElement("div");
+    root = createRoot(container);
+    let config = withVehicle(defaultConfig(), "Honda", "Accord", 2025);
+    const onChange = (next: BuildConfig) => { config = next; };
+    renderForm(config, onChange);
+
+    const modelInput = typeIn("model", "CRV");
+    expect(container.querySelector("#model-options option[value='CR-V']")).not.toBeNull();
+    expect(container.querySelector("#model-options option[value='CRV']")).toBeNull();
+    expect(config.make).toBe("Honda");
+    expect(config.model).toBe("CR-V");
+    expect(modelInput.value).toBe("CRV");
+  });
 });

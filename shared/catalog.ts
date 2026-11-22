@@ -107,6 +107,75 @@ export const CAR_DB: Record<string, Record<string, number[]>> = {
   Chrysler: { "Pacifica": [2017,2018,2019,2020,2021,2022,2023,2024,2025], "Voyager": [2020,2021,2022,2023,2024,2025] },
 };
 
+/** Search-only make aliases. Build configs always store the canonical CAR_DB key. */
+export const VEHICLE_MAKE_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  BMW: ["Beemer", "Bimmer"],
+  "Mercedes-Benz": ["Mercedes", "Benz", "Merc"],
+  Chevrolet: ["Chevy", "Chev"],
+  Volkswagen: ["VW", "Volks"],
+};
+
+/** Search-only model aliases, grouped by canonical make and model labels. */
+export const VEHICLE_MODEL_ALIASES: Readonly<
+  Record<string, Readonly<Record<string, readonly string[]>>>
+> = {
+  Toyota: {
+    "GR Supra": ["A90", "A90 Supra"],
+    "GR86": ["Toyota 86", "GT86", "FT86"],
+    "Supra MK4 (A80)": ["A80", "MK4 Supra", "MkIV Supra"],
+    "Land Cruiser 300": ["LC300"],
+  },
+  Nissan: {
+    "GT-R Nismo": ["GTR", "R35"],
+    "Skyline GT-R R32": ["R32", "R32 GT-R", "BNR32", "Godzilla"],
+    "Skyline GT-R R34": ["R34", "R34 GT-R", "BNR34"],
+    Z: ["Fairlady Z"],
+  },
+  Honda: {
+    "Civic Type R (EK9)": ["EK9", "CTR EK9"],
+    "Civic Type R (EP3)": ["EP3", "CTR EP3"],
+    "Civic Type R (FD2)": ["FD2", "CTR FD2"],
+    "Civic Type R (FK2)": ["FK2", "CTR FK2"],
+    "Civic Type R (FK8)": ["FK8", "CTR FK8"],
+    "Civic Type R (FL5)": ["FL5", "CTR FL5"],
+    "CR-V": ["CRV"],
+    "HR-V": ["HRV"],
+    "CR-Z": ["CRZ"],
+    "NSX (NA2)": ["NA2", "NA2 NSX"],
+  },
+  Mazda: {
+    "MX-5 Miata": ["Miata", "Eunos Roadster"],
+    "RX-7 FD": ["FD3S", "FD RX-7"],
+  },
+  Subaru: {
+    "WRX STI (VA)": ["VA STI", "VA WRX"],
+    "WRX (VB)": ["VB WRX"],
+    "Impreza WRX STI (GD)": ["GD STI", "GD WRX STI"],
+  },
+  Mitsubishi: {
+    "Lancer Evolution X": ["Evo X", "Evo 10", "Lancer Evo X"],
+    "Lancer Evolution IX": ["Evo IX", "Evo 9", "Lancer Evo IX"],
+  },
+  Ford: {
+    "F-150": ["F150", "F 150"],
+    "Mustang GT500": ["GT500", "Shelby GT500"],
+    "Mustang (1st Gen)": ["First-gen Mustang"],
+  },
+  Chevrolet: {
+    Silverado: ["Chevy Silverado"],
+    "Camaro ZL1": ["ZL1 Camaro"],
+    "Corvette Z06": ["C8 Z06"],
+  },
+  Volkswagen: {
+    "Golf R (Mk8)": ["Golf R", "Mk8 Golf R"],
+    "Golf GTI (Mk8)": ["Golf GTI", "Mk8 GTI"],
+  },
+  Dodge: {
+    "Challenger SRT Demon": ["Demon", "Demon Challenger"],
+    "Charger Scat Pack": ["Scat Pack Charger"],
+  },
+};
+
 export interface HondaFactoryVariant {
   id: string;
   label: string;
