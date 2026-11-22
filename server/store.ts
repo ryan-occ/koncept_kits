@@ -58,6 +58,8 @@ export interface Store {
   createBuild(name: string, config: BuildConfig): Promise<BuildRow>;
   updateBuild(id: number, patch: { name?: string; config?: BuildConfig }): Promise<BuildRow | null>;
   deleteBuild(id: number): Promise<boolean>;
+  listFavoriteGroups(): Promise<string[]>;
+  createFavoriteGroup(name: string): Promise<string>;
   listFavoriteVehicles(): Promise<FavoriteVehicle[]>;
   saveFavoriteVehicle(favorite: FavoriteVehicle): Promise<FavoriteVehicle>;
   deleteFavoriteVehicle(favorite: FavoriteVehicle): Promise<boolean>;
@@ -93,6 +95,7 @@ export class MemoryStore implements Store {
   private renders: RenderRow[] = [];
   private specs = new Map<number, PartSpecCache>();
   private favoriteVehicles = new Map<string, FavoriteVehicle>();
+  private favoriteGroups = new Map<string, string>([["favorites", "Favorites"]]);
   private usage: Array<{ kind: string; at: Date }> = [];
 
   async init() {}
@@ -122,15 +125,30 @@ export class MemoryStore implements Store {
   }
   async listFavoriteVehicles() {
     return [...this.favoriteVehicles.values()].sort((a, b) =>
-      `${a.make} ${a.model} ${a.year} ${a.trim ?? ""}`.localeCompare(`${b.make} ${b.model} ${b.year} ${b.trim ?? ""}`),
+      `${a.groupName ?? "Favorites"} ${a.make} ${a.model} ${a.year} ${a.trim ?? ""}`.localeCompare(`${b.groupName ?? "Favorites"} ${b.make} ${b.model} ${b.year} ${b.trim ?? ""}`),
     );
   }
+  async listFavoriteGroups() {
+    return [...this.favoriteGroups.values()].sort((a, b) => a.localeCompare(b));
+  }
+  async createFavoriteGroup(name: string) {
+    const normalizedName = name.trim();
+    const key = normalizedName.toLocaleLowerCase();
+    const existing = this.favoriteGroups.get(key);
+    if (existing) return existing;
+    this.favoriteGroups.set(key, normalizedName);
+    return normalizedName;
+  }
   async saveFavoriteVehicle(favorite: FavoriteVehicle) {
-    this.favoriteVehicles.set(favoriteVehicleKey(favorite), favorite);
-    return favorite;
+    const saved = { ...favorite, groupName: favorite.groupName ?? "Favorites" };
+    this.favoriteVehicles.set(favoriteVehicleKey(saved), saved);
+    return saved;
   }
   async deleteFavoriteVehicle(favorite: FavoriteVehicle) {
-    return this.favoriteVehicles.delete(favoriteVehicleKey(favorite));
+    const key = favoriteVehicleKey(favorite);
+    const existing = this.favoriteVehicles.get(key);
+    if (!existing || (existing.groupName ?? "Favorites") !== (favorite.groupName ?? "Favorites")) return false;
+    return this.favoriteVehicles.delete(key);
   }
   private dropSet(setId: number) {
     this.sets.delete(setId);
@@ -229,14 +247,22 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   output_tokens INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS favorite_groups (
+  name TEXT PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS favorite_groups_name_ci_idx ON favorite_groups (lower(name));
+INSERT INTO favorite_groups (name) VALUES ('Favorites') ON CONFLICT DO NOTHING;
 CREATE TABLE IF NOT EXISTS favorite_vehicles (
   make TEXT NOT NULL,
   model TEXT NOT NULL,
   year INTEGER NOT NULL,
   trim TEXT NOT NULL DEFAULT '',
+  group_name TEXT NOT NULL DEFAULT 'Favorites',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (make, model, year, trim)
 );
+ALTER TABLE favorite_vehicles ADD COLUMN IF NOT EXISTS group_name TEXT NOT NULL DEFAULT 'Favorites';
 `;
 
 type Row = Record<string, any>;
@@ -256,6 +282,7 @@ const favoriteVehicle = (r: Row): FavoriteVehicle => ({
   model: r.model,
   year: r.year,
   ...(r.trim ? { trim: r.trim } : {}),
+  groupName: r.group_name ?? "Favorites",
 });
 export class PostgresStore implements Store {
   readonly kind = "postgres" as const;
@@ -292,23 +319,32 @@ export class PostgresStore implements Store {
   async deleteBuild(id: number) {
     return (await this.pool.query("DELETE FROM builds WHERE id = $1", [id])).rowCount === 1;
   }
+  async listFavoriteGroups() {
+    return (await this.q("SELECT name FROM favorite_groups ORDER BY name")).map(row => row.name as string);
+  }
+  async createFavoriteGroup(name: string) {
+    await this.q("INSERT INTO favorite_groups (name) VALUES ($1) ON CONFLICT DO NOTHING", [name.trim()]);
+    const [row] = await this.q("SELECT name FROM favorite_groups WHERE lower(name) = lower($1)", [name.trim()]);
+    if (!row) throw new Error("Unable to save favorite group.");
+    return row.name as string;
+  }
   async listFavoriteVehicles() {
-    return (await this.q("SELECT make, model, year, trim FROM favorite_vehicles ORDER BY make, model, year, trim"))
+    return (await this.q("SELECT make, model, year, trim, group_name FROM favorite_vehicles ORDER BY group_name, make, model, year, trim"))
       .map(favoriteVehicle);
   }
   async saveFavoriteVehicle(favorite: FavoriteVehicle) {
     const [row] = await this.q(
-      `INSERT INTO favorite_vehicles (make, model, year, trim) VALUES ($1, $2, $3, $4)
-       ON CONFLICT (make, model, year, trim) DO UPDATE SET trim = EXCLUDED.trim
-       RETURNING make, model, year, trim`,
-      [favorite.make, favorite.model, favorite.year, favorite.trim ?? ""],
+      `INSERT INTO favorite_vehicles (make, model, year, trim, group_name) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (make, model, year, trim) DO UPDATE SET group_name = EXCLUDED.group_name
+       RETURNING make, model, year, trim, group_name`,
+      [favorite.make, favorite.model, favorite.year, favorite.trim ?? "", favorite.groupName ?? "Favorites"],
     );
     return favoriteVehicle(row);
   }
   async deleteFavoriteVehicle(favorite: FavoriteVehicle) {
     const rows = await this.q(
-      "DELETE FROM favorite_vehicles WHERE make = $1 AND model = $2 AND year = $3 AND trim = $4 RETURNING make",
-      [favorite.make, favorite.model, favorite.year, favorite.trim ?? ""],
+      "DELETE FROM favorite_vehicles WHERE make = $1 AND model = $2 AND year = $3 AND trim = $4 AND group_name = $5 RETURNING make",
+      [favorite.make, favorite.model, favorite.year, favorite.trim ?? "", favorite.groupName ?? "Favorites"],
     );
     return rows.length > 0;
   }

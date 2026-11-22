@@ -120,6 +120,7 @@ export interface FavoriteVehicle {
   model: string;
   year: number;
   trim?: string;
+  groupName?: string;
 }
 
 export function favoriteVehicleKey(favorite: FavoriteVehicle): string {

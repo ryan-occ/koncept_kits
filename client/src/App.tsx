@@ -36,6 +36,7 @@ export function App() {
   const [step, setStep] = useState<Step>("build");
   const [usage, setUsage] = useState<UsageDto | null>(null);
   const [favoriteVehicles, setFavoriteVehicles] = useState<FavoriteVehicle[]>([]);
+  const [favoriteGroups, setFavoriteGroups] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "pending" | "saving" | "saved">("idle");
   const pendingPatch = useRef<{ name?: string; config?: BuildConfig } | null>(null);
@@ -66,26 +67,45 @@ export function App() {
   }, [refreshList, open]);
 
   useEffect(() => {
-    api.listFavoriteVehicles()
-      .then(setFavoriteVehicles)
+    Promise.all([api.listFavoriteVehicles(), api.listFavoriteGroups()])
+      .then(([vehicles, groups]) => {
+        setFavoriteVehicles(vehicles);
+        setFavoriteGroups(groups);
+      })
       .catch(e => setError(errorText(e)));
   }, []);
 
   const toggleFavoriteVehicle = async (favorite: FavoriteVehicle, isFavorite: boolean) => {
     setError(null);
     try {
-      if (isFavorite) {
+      const existing = favoriteVehicles.find(item => favoriteVehicleKey(item) === favoriteVehicleKey(favorite));
+      if (isFavorite && existing?.groupName === favorite.groupName) {
         await api.deleteFavoriteVehicle(favorite);
         const key = favoriteVehicleKey(favorite);
         setFavoriteVehicles(current => current.filter(item => favoriteVehicleKey(item) !== key));
       } else {
         const saved = await api.saveFavoriteVehicle(favorite);
-        setFavoriteVehicles(current => current.some(item => favoriteVehicleKey(item) === favoriteVehicleKey(saved))
-          ? current
-          : [...current, saved].sort((a, b) => `${a.make} ${a.model} ${a.year}`.localeCompare(`${b.make} ${b.model} ${b.year}`)));
+        setFavoriteVehicles(current => [
+          ...current.filter(item => favoriteVehicleKey(item) !== favoriteVehicleKey(saved)),
+          saved,
+        ].sort((a, b) => `${a.groupName} ${a.make} ${a.model} ${a.year}`.localeCompare(`${b.groupName} ${b.make} ${b.model} ${b.year}`)));
       }
     } catch (e) {
       setError(errorText(e));
+    }
+  };
+
+  const createFavoriteGroup = async (name: string): Promise<string | null> => {
+    setError(null);
+    try {
+      const saved = await api.createFavoriteGroup(name);
+      setFavoriteGroups(current => current.some(group => group.toLocaleLowerCase() === saved.toLocaleLowerCase())
+        ? current
+        : [...current, saved].sort((a, b) => a.localeCompare(b)));
+      return saved;
+    } catch (e) {
+      setError(errorText(e));
+      return null;
     }
   };
 
@@ -256,7 +276,9 @@ export function App() {
               <BuildForm
                 config={build.config}
                 favorites={favoriteVehicles}
+                favoriteGroups={favoriteGroups}
                 onToggleFavorite={toggleFavoriteVehicle}
+                onCreateFavoriteGroup={createFavoriteGroup}
                 hasDrawings={!!build.drawingSet}
                 disabled={jobRunning}
                 onChange={config => queueSave({ config })}

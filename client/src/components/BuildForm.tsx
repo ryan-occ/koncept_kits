@@ -71,10 +71,14 @@ function SearchableSelector({ id, value, options, placeholder, onSelect }: {
   );
 }
 
-export function BuildForm({ config, favorites, onToggleFavorite, hasDrawings, disabled, onChange, onNext }: {
+export function BuildForm({
+  config, favorites, favoriteGroups, onToggleFavorite, onCreateFavoriteGroup, hasDrawings, disabled, onChange, onNext,
+}: {
   config: BuildConfig;
   favorites: FavoriteVehicle[];
+  favoriteGroups: string[];
   onToggleFavorite: (favorite: FavoriteVehicle, isFavorite: boolean) => Promise<void>;
+  onCreateFavoriteGroup: (name: string) => Promise<string | null>;
   hasDrawings: boolean;
   disabled: boolean;
   onChange: (config: BuildConfig) => void;
@@ -88,13 +92,21 @@ export function BuildForm({ config, favorites, onToggleFavorite, hasDrawings, di
     ? { options: [selectedVariant.bodyStyle], default: selectedVariant.bodyStyle }
     : getBodyStyleChoices(config.make, config.model);
   const factoryVariants = getHondaFactoryVariants(config.make, config.model, config.year);
+  const [selectedGroup, setSelectedGroup] = useState("Favorites");
+  const [newGroupName, setNewGroupName] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const currentFavorite: FavoriteVehicle = {
     make: config.make,
     model: config.model,
     year: config.year,
     ...(config.trim ? { trim: config.trim } : {}),
+    groupName: selectedGroup,
   };
-  const isFavorite = favorites.some(favorite => favoriteVehicleKey(favorite) === favoriteVehicleKey(currentFavorite));
+  const savedFavorite = favorites.find(favorite => favoriteVehicleKey(favorite) === favoriteVehicleKey(currentFavorite));
+  const isFavorite = !!savedFavorite;
+  const isInSelectedGroup = (favorite: FavoriteVehicle) => (favorite.groupName ?? "Favorites") === selectedGroup;
+  const isFavoriteInSelectedGroup = !!savedFavorite && isInSelectedGroup(savedFavorite);
+  const groupFavorites = favorites.filter(isInSelectedGroup);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const kits = CATEGORY_KIT_STYLES[config.category];
   const aero = aeroOptions(config);
@@ -171,18 +183,58 @@ export function BuildForm({ config, favorites, onToggleFavorite, hasDrawings, di
         </div>
 
         <div className="grid">
+          <Field label="Favorite group" id="favorite-group">
+            <select id="favorite-group" value={selectedGroup} onChange={event => setSelectedGroup(event.target.value)}>
+              {favoriteGroups.map(group => <option key={group} value={group}>{group}</option>)}
+            </select>
+          </Field>
+          <div className="field">
+            <label className="label" htmlFor="new-favorite-group">Create a favorite group</label>
+            <div className="actions">
+              <input
+                id="new-favorite-group"
+                type="text"
+                maxLength={40}
+                value={newGroupName}
+                placeholder="e.g. Track cars"
+                onChange={event => setNewGroupName(event.target.value)}
+              />
+              <button
+                type="button"
+                className="btn"
+                disabled={!newGroupName.trim() || creatingGroup}
+                onClick={async () => {
+                  setCreatingGroup(true);
+                  try {
+                    const created = await onCreateFavoriteGroup(newGroupName);
+                    if (created) {
+                      setSelectedGroup(created);
+                      setNewGroupName("");
+                    }
+                  } finally {
+                    setCreatingGroup(false);
+                  }
+                }}
+              >
+                {creatingGroup ? "Creating…" : "Create group"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid">
           <Field label="Saved vehicles" id="favorite-vehicle">
             <select
               id="favorite-vehicle"
               defaultValue=""
               onChange={event => {
-                const favorite = favorites.find(item => favoriteVehicleKey(item) === event.target.value);
+                const favorite = groupFavorites.find(item => favoriteVehicleKey(item) === event.target.value);
                 if (favorite) pickFavorite(favorite);
                 event.currentTarget.value = "";
               }}
             >
-              <option value="">Choose a favorite vehicle</option>
-              {favorites.map(favorite => {
+              <option value="">Choose a vehicle in {selectedGroup}</option>
+              {groupFavorites.map(favorite => {
                 const variantLabel = favorite.trim
                   ? getHondaFactoryVariant(favorite.make, favorite.model, favorite.year, favorite.trim)?.label ?? favorite.trim
                   : null;
@@ -198,8 +250,8 @@ export function BuildForm({ config, favorites, onToggleFavorite, hasDrawings, di
             <span className="label">Current vehicle</span>
             <button
               type="button"
-              className={`btn${isFavorite ? " ok" : ""}`}
-              aria-pressed={isFavorite}
+              className={`btn${isFavoriteInSelectedGroup ? " ok" : ""}`}
+              aria-pressed={isFavoriteInSelectedGroup}
               disabled={savingFavorite}
               onClick={async () => {
                 setSavingFavorite(true);
@@ -210,7 +262,13 @@ export function BuildForm({ config, favorites, onToggleFavorite, hasDrawings, di
                 }
               }}
             >
-              {savingFavorite ? "Saving…" : isFavorite ? "★ Saved vehicle" : "☆ Save vehicle"}
+              {savingFavorite
+                ? "Saving…"
+                : isFavoriteInSelectedGroup
+                  ? `★ Saved in ${selectedGroup}`
+                  : isFavorite
+                    ? `Move to ${selectedGroup}`
+                    : `☆ Save to ${selectedGroup}`}
             </button>
           </div>
         </div>

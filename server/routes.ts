@@ -16,6 +16,7 @@ const FavoriteVehicleBody = z.object({
   model: z.string().trim().min(1).max(80),
   year: z.number().int().min(1900).max(2100),
   trim: z.string().trim().min(1).max(40).optional(),
+  groupName: z.string().trim().min(1).max(40).optional(),
 }).strict().superRefine((favorite, ctx) => {
   if (!CAR_DB[favorite.make]?.[favorite.model]?.includes(favorite.year)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["year"], message: "Choose a model year from the vehicle catalog." });
@@ -24,8 +25,17 @@ const FavoriteVehicleBody = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["trim"], message: "This factory variant is not available for the selected vehicle and year." });
   }
 });
+const FavoriteGroupBody = z.object({ name: z.string().trim().min(1).max(40) }).strict();
 
 const favoriteVehicle = (input: unknown): FavoriteVehicle => FavoriteVehicleBody.parse(input);
+async function favoriteInExistingGroup(studio: Studio, input: unknown): Promise<FavoriteVehicle> {
+  const favorite = favoriteVehicle(input);
+  const groupName = favorite.groupName ?? "Favorites";
+  const canonicalName = (await studio.store.listFavoriteGroups())
+    .find(name => name.toLocaleLowerCase() === groupName.toLocaleLowerCase());
+  if (!canonicalName) throw new StudioError("Create or choose an existing favorite group.", 400, "BAD_FAVORITE_GROUP");
+  return { ...favorite, groupName: canonicalName };
+}
 
 type Handler = (req: Request, res: Response) => Promise<unknown>;
 const wrap = (handler: Handler) => (req: Request, res: Response, next: NextFunction) => {
@@ -51,12 +61,16 @@ export function apiRouter(studio: Studio) {
 
   router.get("/healthz", (_req, res) => { res.json({ ok: true }); });
   router.get("/usage", wrap(async (_req, res) => res.json(await studio.usage())));
+  router.get("/favorite-groups", wrap(async (_req, res) => res.json(await studio.store.listFavoriteGroups())));
+  router.post("/favorite-groups", wrap(async (req, res) =>
+    res.status(201).json(await studio.store.createFavoriteGroup(FavoriteGroupBody.parse(req.body).name)),
+  ));
   router.get("/favorites", wrap(async (_req, res) => res.json(await studio.store.listFavoriteVehicles())));
   router.put("/favorites", wrap(async (req, res) =>
-    res.status(201).json(await studio.store.saveFavoriteVehicle(favoriteVehicle(req.body))),
+    res.status(201).json(await studio.store.saveFavoriteVehicle(await favoriteInExistingGroup(studio, req.body))),
   ));
   router.delete("/favorites", wrap(async (req, res) => {
-    await studio.store.deleteFavoriteVehicle(favoriteVehicle(req.body));
+    await studio.store.deleteFavoriteVehicle(await favoriteInExistingGroup(studio, req.body));
     res.status(204).end();
   }));
 

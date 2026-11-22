@@ -47,6 +47,29 @@ async function drawAndWait(app: express.Express, studio: Studio, id: number) {
 }
 
 describe("drawing-first workflow", () => {
+  it("creates favorite groups and moves a vehicle without duplicating it", async () => {
+    const { app } = setup();
+    const favorite = { make: "Honda", model: "Civic", year: 2024 };
+
+    expect((await request(app).get("/api/favorite-groups")).body).toEqual(["Favorites"]);
+    const created = await request(app).post("/api/favorite-groups").send({ name: "Track cars" });
+    expect(created.status).toBe(201);
+    expect(created.body).toBe("Track cars");
+    expect((await request(app).post("/api/favorite-groups").send({ name: "track CARS" })).body).toBe("Track cars");
+    expect((await request(app).get("/api/favorite-groups")).body).toEqual(["Favorites", "Track cars"]);
+
+    expect((await request(app).put("/api/favorites").send({ ...favorite, groupName: "Missing group" })).status).toBe(400);
+    expect((await request(app).put("/api/favorites").send(favorite)).body).toEqual({ ...favorite, groupName: "Favorites" });
+    const moved = await request(app).put("/api/favorites").send({ ...favorite, groupName: "Track cars" });
+    expect(moved.body).toEqual({ ...favorite, groupName: "Track cars" });
+    expect((await request(app).get("/api/favorites")).body).toEqual([{ ...favorite, groupName: "Track cars" }]);
+
+    expect((await request(app).delete("/api/favorites").send(favorite)).status).toBe(204);
+    expect((await request(app).get("/api/favorites")).body).toHaveLength(1);
+    expect((await request(app).delete("/api/favorites").send(moved.body)).status).toBe(204);
+    expect((await request(app).get("/api/favorites")).body).toEqual([]);
+  });
+
   it("saves, reloads, and removes favorite catalog vehicles", async () => {
     const { app } = setup();
     const favorite = { make: "Honda", model: "Civic", year: 2024 };
@@ -55,14 +78,17 @@ describe("drawing-first workflow", () => {
     expect((await request(app).get("/api/favorites")).body).toEqual([]);
     const saved = await request(app).put("/api/favorites").send(favorite);
     expect(saved.status).toBe(201);
-    expect(saved.body).toEqual(favorite);
+    expect(saved.body).toEqual({ ...favorite, groupName: "Favorites" });
     expect((await request(app).put("/api/favorites").send(favorite)).status).toBe(201);
     expect((await request(app).put("/api/favorites").send(variantFavorite)).status).toBe(201);
-    expect((await request(app).get("/api/favorites")).body).toEqual([favorite, variantFavorite]);
+    expect((await request(app).get("/api/favorites")).body).toEqual([
+      { ...favorite, groupName: "Favorites" },
+      { ...variantFavorite, groupName: "Favorites" },
+    ]);
 
     expect((await request(app).put("/api/favorites").send({ ...favorite, year: 1800 })).status).toBe(400);
     expect((await request(app).delete("/api/favorites").send(favorite)).status).toBe(204);
-    expect((await request(app).get("/api/favorites")).body).toEqual([variantFavorite]);
+    expect((await request(app).get("/api/favorites")).body).toEqual([{ ...variantFavorite, groupName: "Favorites" }]);
     expect((await request(app).delete("/api/favorites").send(variantFavorite)).status).toBe(204);
     expect((await request(app).get("/api/favorites")).body).toEqual([]);
   });

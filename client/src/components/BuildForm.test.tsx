@@ -17,13 +17,17 @@ describe("BuildForm vehicle search", () => {
     onChange: (next: BuildConfig) => void,
     favorites: FavoriteVehicle[] = [],
     onToggleFavorite: (favorite: FavoriteVehicle, isFavorite: boolean) => Promise<void> = async () => {},
+    favoriteGroups: string[] = ["Favorites"],
+    onCreateFavoriteGroup: (name: string) => Promise<string | null> = async name => name.trim(),
   ) => {
     act(() => {
       root.render(
         <BuildForm
           config={config}
           favorites={favorites}
+          favoriteGroups={favoriteGroups}
           onToggleFavorite={onToggleFavorite}
+          onCreateFavoriteGroup={onCreateFavoriteGroup}
           hasDrawings={false}
           disabled={false}
           onChange={onChange}
@@ -120,14 +124,14 @@ describe("BuildForm vehicle search", () => {
     root = createRoot(container);
     let config = defaultConfig();
     const onChange = (next: BuildConfig) => { config = next; };
-    const favorite = { make: "Honda", model: "Civic", year: 2024, trim: "civic-type-r" };
+    const favorite = { make: "Honda", model: "Civic", year: 2024, trim: "civic-type-r", groupName: "Favorites" };
     const onToggleFavorite = vi.fn().mockResolvedValue(undefined);
     renderForm(config, onChange, [favorite], onToggleFavorite);
 
-    const saveCurrent = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "☆ Save vehicle")!;
+    const saveCurrent = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "☆ Save to Favorites")!;
     await act(async () => { saveCurrent.click(); await Promise.resolve(); });
     expect(onToggleFavorite).toHaveBeenCalledWith(
-      { make: "BMW", model: "M4", year: config.year },
+      { make: "BMW", model: "M4", year: config.year, groupName: "Favorites" },
       false,
     );
     onToggleFavorite.mockClear();
@@ -141,8 +145,31 @@ describe("BuildForm vehicle search", () => {
     expect(config).toMatchObject({ make: "Honda", model: "Civic", year: 2024, trim: "civic-type-r", bodyStyle: "hatchback" });
 
     renderForm(config, onChange, [favorite], onToggleFavorite);
-    const removeCurrent = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "★ Saved vehicle")!;
+    const removeCurrent = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "★ Saved in Favorites")!;
     await act(async () => { removeCurrent.click(); await Promise.resolve(); });
     expect(onToggleFavorite).toHaveBeenCalledWith(favorite, true);
+  });
+
+  it("creates a group and moves a saved vehicle into it", async () => {
+    container = document.createElement("div");
+    root = createRoot(container);
+    const config = withVehicle(defaultConfig(), "Honda", "Civic", 2024);
+    const favorite = { make: "Honda", model: "Civic", year: 2024, groupName: "Favorites" };
+    const onToggleFavorite = vi.fn().mockResolvedValue(undefined);
+    const onCreateFavoriteGroup = vi.fn().mockResolvedValue("Track cars");
+    renderForm(config, () => {}, [favorite], onToggleFavorite, ["Favorites"], onCreateFavoriteGroup);
+
+    typeIn("new-favorite-group", "Track cars");
+    const createButton = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Create group")!;
+    await act(async () => { createButton.click(); await Promise.resolve(); });
+    expect(onCreateFavoriteGroup).toHaveBeenCalledWith("Track cars");
+
+    renderForm(config, () => {}, [favorite], onToggleFavorite, ["Favorites", "Track cars"], onCreateFavoriteGroup);
+    const moveButton = Array.from(container.querySelectorAll("button")).find(button => button.textContent === "Move to Track cars")!;
+    await act(async () => { moveButton.click(); await Promise.resolve(); });
+    expect(onToggleFavorite).toHaveBeenCalledWith(
+      { make: "Honda", model: "Civic", year: 2024, groupName: "Track cars" },
+      true,
+    );
   });
 });

@@ -26,6 +26,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 export const api = {
   usage: () => request<UsageDto>("GET", "/api/usage"),
   listBuilds: () => request<BuildSummaryDto[]>("GET", "/api/builds"),
+  listFavoriteGroups: () => request<string[]>("GET", "/api/favorite-groups"),
+  createFavoriteGroup: (name: string) => request<string>("POST", "/api/favorite-groups", { name }),
   listFavoriteVehicles: () => request<FavoriteVehicle[]>("GET", "/api/favorites"),
   saveFavoriteVehicle: (favorite: FavoriteVehicle) => request<FavoriteVehicle>("PUT", "/api/favorites", favorite),
   deleteFavoriteVehicle: (favorite: FavoriteVehicle) => request<void>("DELETE", "/api/favorites", favorite),
