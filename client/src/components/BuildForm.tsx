@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import {
   BODY_STYLE_LABELS, CAR_DB, CATEGORY_KIT_STYLES, CF_MATERIALS, PAINTS, RIM_COLORS, RIM_STYLES,
-  SPOILER_LABELS, WING_MOUNTING_LABELS, getBodyStyleChoices, getValidMountings,
+  SPOILER_LABELS, WING_MOUNTING_LABELS, getBodyStyleChoices, getHondaFactoryVariant, getHondaFactoryVariants, getValidMountings,
 } from "../../../shared/catalog";
 import { aeroOptions, normalizeAero, withVehicle } from "../../../shared/defaults";
 import { PART_IDS, PART_LABELS, type BuildConfig } from "../../../shared/types";
@@ -25,7 +25,11 @@ export function BuildForm({ config, hasDrawings, disabled, onChange, onNext }: {
   const makes = Object.keys(CAR_DB).sort();
   const models = Object.keys(CAR_DB[config.make] ?? {}).sort();
   const years = [...(CAR_DB[config.make]?.[config.model] ?? [config.year])].sort((a, b) => b - a);
-  const bodyChoices = getBodyStyleChoices(config.make, config.model);
+  const selectedVariant = getHondaFactoryVariant(config.make, config.model, config.year, config.trim);
+  const bodyChoices = selectedVariant
+    ? { options: [selectedVariant.bodyStyle], default: selectedVariant.bodyStyle }
+    : getBodyStyleChoices(config.make, config.model);
+  const factoryVariants = getHondaFactoryVariants(config.make, config.model, config.year);
   const kits = CATEGORY_KIT_STYLES[config.category];
   const aero = aeroOptions(config);
   const rim = RIM_STYLES.find(r => r.id === config.rim.styleId) ?? RIM_STYLES[0]!;
@@ -63,10 +67,22 @@ export function BuildForm({ config, hasDrawings, disabled, onChange, onNext }: {
             </select>
           </Field>
           <Field label="Year" id="year">
-            <select id="year" value={config.year} onChange={e => set({ year: Number(e.target.value) })}>
+            <select id="year" value={config.year} onChange={e => onChange(withVehicle(config, config.make, config.model, Number(e.target.value)))}>
               {years.map(y => <option key={y}>{y}</option>)}
             </select>
           </Field>
+          {factoryVariants.length > 0 && (
+            <Field label="Factory variant" id="trim">
+              <select
+                id="trim"
+                value={config.trim ?? ""}
+                onChange={e => onChange(withVehicle({ ...config, trim: e.target.value || undefined }, config.make, config.model, config.year))}
+              >
+                <option value="">Standard / not specified</option>
+                {factoryVariants.map(variant => <option key={variant.id} value={variant.id}>{variant.label}</option>)}
+              </select>
+            </Field>
+          )}
           {bodyChoices.options.length > 1 && (
             <Field label="Body style" id="body">
               <select id="body" value={config.bodyStyle} onChange={e => set({ bodyStyle: e.target.value as BuildConfig["bodyStyle"] })}>

@@ -1,6 +1,6 @@
 import {
   CAR_DB, CATEGORY_KIT_STYLES, CF_MATERIALS, PAINTS, RIM_COLORS, RIM_STYLES,
-  getBodyStyleChoices, getVehicleCategory,
+  getBodyStyleChoices, getHondaFactoryVariant, getVehicleCategory,
 } from "./catalog";
 import { getCompatibleSpoilerTypes, isTrackWingKitId } from "./car-rules";
 import { PART_IDS, type BuildConfig, type RearAero } from "./types";
@@ -50,12 +50,13 @@ export function normalizeAero(config: BuildConfig): BuildConfig {
 /** Re-derives the fields that depend on the chosen vehicle, keeping the user's other choices. */
 export function withVehicle(base: BuildConfig, make: string, model: string, year: number): BuildConfig {
   const category = getVehicleCategory(make, model);
-  const bodyStyle = getBodyStyleChoices(make, model).default;
+  const factoryVariant = getHondaFactoryVariant(make, model, year, base.trim);
+  const bodyStyle = factoryVariant?.bodyStyle ?? getBodyStyleChoices(make, model).default;
   const kits = CATEGORY_KIT_STYLES[category];
   const kit = kits.find(k => k.id === base.kitStyleId) ?? kits[0]!;
   return normalizeAero({
     ...base,
-    make, model, year, category, bodyStyle,
+    make, model, year, trim: factoryVariant?.id, category, bodyStyle,
     kitStyleId: kit.id,
     kitStyleLabel: kit.label.replace(/^✦\s*/, ""),
   });

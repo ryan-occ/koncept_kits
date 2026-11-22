@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { defaultConfig } from "../../shared/defaults";
+import { defaultConfig, withVehicle } from "../../shared/defaults";
 import type { BuildConfig } from "../../shared/types";
-import { drawingPrompt, renderPrompt } from "./prompts";
+import { drawingPrompt, partDrawingPrompt, renderPrompt, vehicleName } from "./prompts";
 
 function config(patch: Partial<BuildConfig> = {}, fenders = false): BuildConfig {
   const base = defaultConfig();
@@ -68,6 +68,22 @@ describe("wheel-arch rule", () => {
         expect(drawingPrompt(c, view), `${kit.kitStyleId} ${view}`).toContain("WIDE-BODY SETUP");
       }
     }
+  });
+});
+
+describe("Honda factory variants in generation prompts", () => {
+  it("uses the selected trim in the vehicle name and drawing identity cues", () => {
+    const civic = withVehicle({ ...defaultConfig(), trim: "civic-type-r" }, "Honda", "Civic", 2024);
+    expect(vehicleName(civic)).toBe("2024 Honda Civic Type R");
+    expect(drawingPrompt(civic, "front")).toContain(
+      "FACTORY VARIANT: Civic Type R high-performance hatchback with its aggressive factory fascia and large rear wing.",
+    );
+  });
+
+  it("includes body variants in close-up part drawing prompts", () => {
+    const accord = withVehicle({ ...defaultConfig(), trim: "accord-coupe" }, "Honda", "Accord", 2017);
+    expect(partDrawingPrompt(accord, "front")).toContain("2017 Honda Accord Coupe");
+    expect(partDrawingPrompt(accord, "front")).toContain("two-door Accord Coupe body");
   });
 });
 

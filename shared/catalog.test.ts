@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CAR_DB, getBodyStyleChoices, getVehicleCategory } from "./catalog";
 import { getCuratedBodyStylesForModel, getCuratedSignatureCuesForModel } from "./car-rules";
+import { CAR_DB, getBodyStyleChoices, getHondaFactoryVariants, getVehicleCategory } from "./catalog";
+import { defaultConfig, withVehicle } from "./defaults";
+import { BuildConfigSchema } from "./types";
 
 describe("Honda vehicle catalog", () => {
   it("offers model years from 2000 onward for Honda's main lineup", () => {
@@ -39,5 +41,27 @@ describe("Honda vehicle catalog", () => {
       expect(serverStyles, `${model} should have matching server body styles`).toEqual(clientStyles);
       expect(getCuratedSignatureCuesForModel("Honda", model), `${model} should have three shape cues`).toHaveLength(3);
     }
+  });
+
+  it("offers year-appropriate variants without adding duplicate model names", () => {
+    expect(getHondaFactoryVariants("Honda", "Civic", 2024).map(variant => variant.label)).toEqual(["Si", "Type R"]);
+    expect(getHondaFactoryVariants("Honda", "Civic", 2022).map(variant => variant.label)).toEqual(["Si"]);
+    expect(getHondaFactoryVariants("Honda", "Accord", 2017).map(variant => variant.label)).toEqual(["Sport", "Coupe"]);
+    expect(getHondaFactoryVariants("Honda", "Accord", 2018).map(variant => variant.label)).toEqual(["Sport"]);
+    expect(getHondaFactoryVariants("Toyota", "Civic", 2024)).toEqual([]);
+  });
+
+  it("applies the variant body style and validates saved selections", () => {
+    const civic = withVehicle({ ...defaultConfig(), trim: "civic-type-r" }, "Honda", "Civic", 2024);
+    expect(civic.model).toBe("Civic");
+    expect(civic.trim).toBe("civic-type-r");
+    expect(civic.bodyStyle).toBe("hatchback");
+    expect(BuildConfigSchema.parse(civic).trim).toBe("civic-type-r");
+    expect(BuildConfigSchema.safeParse({ ...civic, year: 2022 }).success).toBe(false);
+    expect(BuildConfigSchema.safeParse({ ...civic, make: "Toyota" }).success).toBe(false);
+
+    const unavailableYear = withVehicle(civic, "Honda", "Civic", 2022);
+    expect(unavailableYear.trim).toBeUndefined();
+    expect(unavailableYear.bodyStyle).toBe("sedan");
   });
 });

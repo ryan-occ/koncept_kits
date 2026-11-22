@@ -107,6 +107,74 @@ export const CAR_DB: Record<string, Record<string, number[]>> = {
   Chrysler: { "Pacifica": [2017,2018,2019,2020,2021,2022,2023,2024,2025], "Voyager": [2020,2021,2022,2023,2024,2025] },
 };
 
+export interface HondaFactoryVariant {
+  id: string;
+  label: string;
+  model: string;
+  years: readonly number[];
+  bodyStyle: BodyStyle;
+  promptCue: string;
+}
+
+/** Distinct factory variants are kept separate from model names to avoid duplicate vehicle entries. */
+export const HONDA_FACTORY_VARIANTS: readonly HondaFactoryVariant[] = [
+  {
+    id: "civic-si",
+    label: "Si",
+    model: "Civic",
+    years: [...yearsBetween(2000, 2015), ...yearsBetween(2017, 2026)],
+    bodyStyle: "sedan",
+    promptCue: "Civic Si performance trim with its factory sport fascia and subtle rear lip spoiler",
+  },
+  {
+    id: "civic-type-r",
+    label: "Type R",
+    model: "Civic",
+    years: [...yearsBetween(2017, 2021), ...yearsBetween(2023, 2026)],
+    bodyStyle: "hatchback",
+    promptCue: "Civic Type R high-performance hatchback with its aggressive factory fascia and large rear wing",
+  },
+  {
+    id: "accord-sport",
+    label: "Sport",
+    model: "Accord",
+    years: yearsBetween(2013, 2026),
+    bodyStyle: "sedan",
+    promptCue: "Accord Sport trim with its factory sport fascia and distinctive factory wheels",
+  },
+  {
+    id: "accord-coupe",
+    label: "Coupe",
+    model: "Accord",
+    years: yearsBetween(2000, 2017),
+    bodyStyle: "coupe",
+    promptCue: "two-door Accord Coupe body with its shorter rear side windows and distinct coupe roofline",
+  },
+  {
+    id: "cr-v-trailsport",
+    label: "TrailSport",
+    model: "CR-V",
+    years: yearsBetween(2024, 2026),
+    bodyStyle: "suv",
+    promptCue: "CR-V TrailSport trim with rugged factory styling and orange recovery-point accents",
+  },
+];
+
+export function getHondaFactoryVariants(make: string, model: string, year: number): readonly HondaFactoryVariant[] {
+  if (make !== "Honda") return [];
+  return HONDA_FACTORY_VARIANTS.filter(variant => variant.model === model && variant.years.includes(year));
+}
+
+export function getHondaFactoryVariant(
+  make: string,
+  model: string,
+  year: number,
+  variantId: string | undefined,
+): HondaFactoryVariant | undefined {
+  if (!variantId) return undefined;
+  return getHondaFactoryVariants(make, model, year).find(variant => variant.id === variantId);
+}
+
 export type VehicleCategory = 'sports-coupe' | 'hypercar' | 'suv' | 'muscle' | 'sedan' | 'grand-tourer' | 'wagon' | 'classic' | 'pickup' | 'hatchback' | 'crossover' | 'minivan';
 
 // ─── Home market resolver ───────────────────────────────────────────────────

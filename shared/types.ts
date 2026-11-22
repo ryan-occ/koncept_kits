@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getHondaFactoryVariant } from "./catalog";
 
 /** Kit part IDs share the finish contract of the ported car-rules module. */
 export const PART_IDS = ["front", "sides", "rear", "wing", "hood", "front-fender", "rear-fender"] as const;
@@ -72,10 +73,11 @@ export const PartConfigSchema = z.object({
   finish: z.enum(["carbon", "body"]),
 }).strict();
 
-export const BuildConfigSchema = z.object({
+const BuildConfigBaseSchema = z.object({
   year: z.number().int().min(1900).max(2100),
   make: z.string().min(1).max(60),
   model: z.string().min(1).max(80),
+  trim: z.string().min(1).max(40).optional(),
   category: z.enum(VEHICLE_CATEGORIES),
   bodyStyle: z.enum(BODY_STYLES),
   kitStyleId: z.string().min(1).max(60),
@@ -99,6 +101,16 @@ export const BuildConfigSchema = z.object({
   rearAero: z.enum(REAR_AERO),
   wingMounting: z.enum(WING_MOUNTINGS).optional(),
 }).strict();
+
+export const BuildConfigSchema = BuildConfigBaseSchema.superRefine((config, ctx) => {
+  if (config.trim && !getHondaFactoryVariant(config.make, config.model, config.year, config.trim)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["trim"],
+      message: "This factory variant is not available for the selected vehicle and year.",
+    });
+  }
+});
 
 export type BuildConfig = z.infer<typeof BuildConfigSchema>;
 export type RearAero = BuildConfig["rearAero"];

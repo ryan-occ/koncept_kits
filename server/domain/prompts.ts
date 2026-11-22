@@ -30,8 +30,16 @@ import {
   type RenderAngle,
 } from "../../shared/types";
 
+import { getHondaFactoryVariant } from "../../shared/catalog";
+
 export function vehicleName(config: BuildConfig): string {
-  return `${config.year} ${config.make} ${config.model}`;
+  const variant = getHondaFactoryVariant(config.make, config.model, config.year, config.trim);
+  return `${config.year} ${config.make} ${config.model}${variant ? ` ${variant.label}` : ""}`;
+}
+
+function factoryVariantCue(config: BuildConfig): string | null {
+  const variant = getHondaFactoryVariant(config.make, config.model, config.year, config.trim);
+  return variant ? `FACTORY VARIANT: ${variant.promptCue}.` : null;
 }
 
 export function includedParts(config: BuildConfig) {
@@ -109,6 +117,7 @@ export function drawingPrompt(config: BuildConfig, view: DrawingView, notes?: st
     `Clean black-and-white automotive technical line drawing (design blueprint style) of a ${vehicleName(config)} ${config.bodyStyle}.`,
     `View: ${VIEW_DIRECTIVES[view]}.`,
     `IDENTITY IS MANDATORY: it must be instantly recognisable as the real production ${config.make} ${config.model} — exact factory silhouette, roofline and greenhouse, wheelbase and overhangs, headlight, grille, tail-light and window shapes. Do not invent a generic car.`,
+    factoryVariantCue(config),
     signatureCues
       ? `CURATED MODEL SHAPE CUES: ${signatureCues.map((cue, index) => `${index + 1}) ${cue}`).join(" ")} Follow these factory details for the selected model and year.`
       : null,
@@ -168,6 +177,7 @@ export function partDrawingPrompt(config: BuildConfig, partId: PartId, notes?: s
   const sheet = PART_SHEET_VIEWS[partId];
   const lines = [
     `Clean black-and-white technical line drawing of a single aftermarket body-kit part: ${PART_SHAPE_HINTS[partId]}, for a ${vehicleName(config)} with ${kitDescription(config)}.`,
+    factoryVariantCue(config),
     `View: ${VIEW_DIRECTIVES[sheet.view]} — of the PART ONLY, isolated, not attached to the car.`,
     `The part must match the shape, proportions and details of this part in the attached approved car drawing exactly.`,
     partId === "wing" ? rearAeroSentence(config) : null,
