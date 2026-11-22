@@ -70,3 +70,29 @@ describe("wheel-arch rule", () => {
     }
   });
 });
+
+describe("curated Honda drawing cues", () => {
+  it("adds the selected Civic Type R generation's factory shape details", () => {
+    const prompt = drawingPrompt(config({
+      make: "Honda",
+      model: "Civic Type R (EP3)",
+      year: 2005,
+      bodyStyle: "hatchback",
+    }), "side");
+
+    expect(prompt).toContain("CURATED MODEL SHAPE CUES:");
+    expect(prompt).toContain("tall-roof three-door hatchback profile");
+    expect(prompt).toContain("high-mounted rear wing");
+  });
+
+  it("warns the image model not to confuse the Insight generations", () => {
+    const prompt = drawingPrompt(config({
+      make: "Honda",
+      model: "Insight",
+      year: 2003,
+    }), "side");
+
+    expect(prompt).toContain("2000–2006 two-seat tapered liftback");
+    expect(prompt).toContain("2019–2022 four-door sedan");
+  });
+});

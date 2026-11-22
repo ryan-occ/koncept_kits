@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CAR_DB, getBodyStyleChoices, getVehicleCategory } from "./catalog";
-import { getCuratedBodyStylesForModel } from "./car-rules";
+import { getCuratedBodyStylesForModel, getCuratedSignatureCuesForModel } from "./car-rules";
 
 describe("Honda vehicle catalog", () => {
   it("offers model years from 2000 onward for Honda's main lineup", () => {
@@ -29,6 +29,15 @@ describe("Honda vehicle catalog", () => {
     ] as const) {
       expect(getBodyStyleChoices("Honda", model).default).toBe(style);
       expect(getCuratedBodyStylesForModel("Honda", model)).toEqual([style]);
+    }
+  });
+
+  it("keeps Honda body-style options aligned and supplies curated shape cues", () => {
+    for (const model of Object.keys(CAR_DB.Honda ?? {})) {
+      const clientStyles = getBodyStyleChoices("Honda", model).options.toSorted();
+      const serverStyles = getCuratedBodyStylesForModel("Honda", model)?.toSorted();
+      expect(serverStyles, `${model} should have matching server body styles`).toEqual(clientStyles);
+      expect(getCuratedSignatureCuesForModel("Honda", model), `${model} should have three shape cues`).toHaveLength(3);
     }
   });
 });

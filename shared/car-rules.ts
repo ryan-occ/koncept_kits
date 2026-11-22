@@ -610,6 +610,11 @@ const KNOWN_MODEL_BODY_STYLES: Record<string, BodyStyle> = {
   "Honda:Civic": "sedan",
   "Honda:Accord": "sedan",
   "Honda:CR-V": "suv",
+  "Honda:Fit": "hatchback",
+  "Honda:HR-V": "suv",
+  "Honda:Odyssey": "suv",
+  "Honda:Pilot": "suv",
+  "Honda:Ridgeline": "truck",
   // Mazda
   "Mazda:MX-5 Miata": "convertible",
   "Mazda:CX-5": "suv",
@@ -1162,6 +1167,21 @@ const KNOWN_MODEL_SIGNATURE_CUES: Record<string, readonly [string, string, strin
     "triple central exhaust outlets in the rear bumper",
     "tall fixed rear wing on prominent risers extending well above the tailgate",
   ],
+  "Honda:Civic Type R (EP3)": [
+    "tall-roof three-door hatchback profile with a short bonnet and upright rear hatch",
+    "large triangular headlamps set high at the corners of a compact front fascia",
+    "high-mounted rear wing above a nearly vertical tailgate",
+  ],
+  "Honda:Civic Type R (FD2)": [
+    "four-door compact sedan body with a separate, squared-off boot and short rear overhang",
+    "wide angular headlamps and a low, broad front bumper opening",
+    "distinctive high rear-deck wing above the sedan boot lid",
+  ],
+  "Honda:Civic Type R (FK2)": [
+    "five-door hatchback profile with a sharply sloped windscreen and rising shoulder line",
+    "pronounced rear-quarter arch shoulders flowing into a tall hatch-mounted wing",
+    "three central exhaust outlets grouped in the rear diffuser area",
+  ],
   "Honda:Civic Type R (EK9)": [
     "compact 90s 3-door hatchback silhouette with a short rear overhang",
     "round dual headlights inboard of the front fenders",
@@ -1178,9 +1198,69 @@ const KNOWN_MODEL_SIGNATURE_CUES: Record<string, readonly [string, string, strin
     "small lip rear-deck spoiler and red Type R badge on the grille",
   ],
   "Honda:Prelude (5th Gen)": [
-    "low wide 2-door coupe silhouette with very thin pillars and pop-up-era flush headlights",
-    "wide horizontal-bar grille flanked by slim wraparound headlights",
-    "wraparound horizontal LED tail-lamp panel across the rear",
+    "low, wide two-door coupe with a long bonnet, narrow greenhouse and short boot",
+    "fixed oval headlights integrated into a smooth, sloping nose",
+    "rounded rear quarters ending in a full-width horizontal tail-lamp panel",
+  ],
+  "Honda:Prelude (6th Gen)": [
+    "low two-door hybrid coupe profile with a long sloping roof flowing into a short liftback-style rear",
+    "wide, low nose with slim horizontal LED headlamps and a narrow central grille opening",
+    "broad rear haunches and a clean full-width horizontal rear-light treatment",
+  ],
+  "Honda:NSX (NA2)": [
+    "low mid-engine two-seat coupe wedge with a flat bonnet and cabin set forward of the rear axle",
+    "fixed xenon headlamps integrated into the nose rather than pop-up headlamp doors",
+    "large side air intakes behind both doors and four round tail lamps",
+  ],
+  "Honda:CR-Z": [
+    "compact two-seat three-door hybrid liftback with a sharply tapered nose and short rear deck",
+    "deeply sloped windscreen continuing into a fastback roof and steep rear hatch",
+    "split rear glass and a high, broad hatch spoiler defining the short tail",
+  ],
+  "Honda:Crosstour": [
+    "high-riding five-door fastback with an Accord-like long bonnet and a roof that slopes into the rear hatch",
+    "thick rear pillars and a deeply raked tailgate glass above a short, raised rear deck",
+    "vertical wraparound tail lamps integrated into the high rear corners",
+  ],
+  "Honda:Element": [
+    "boxy compact SUV with a nearly flat roof, upright windscreen and tall squared-off cabin",
+    "large rectangular side windows and contrasting squared wheel-arch cladding",
+    "vertical rear hatch with tall corner tail lamps and a low, wide bumper",
+  ],
+  "Honda:Insight": [
+    "follow the selected year: 2000–2006 two-seat tapered liftback, 2010–2014 five-door hatchback, or 2019–2022 four-door sedan",
+    "low-drag aerodynamic roofline and smoothly tapered rear body, matched to the chosen generation",
+    "distinctive hybrid-era compact proportions; do not substitute a generic Civic silhouette",
+  ],
+  "Honda:Fit": [
+    "short-nose tall-roof five-door subcompact hatchback with a compact, upright cabin",
+    "large side windows and a high roofline that continues nearly level to the rear hatch",
+    "short rear overhang with a tall vertical hatch and narrow corner tail lamps",
+  ],
+  "Honda:HR-V": [
+    "compact crossover with a rising beltline, short rear overhang and sloping roof into a rear hatch",
+    "rear door handles concealed high near the C-pillars, creating a clean two-door-like side profile",
+    "raised ride height with compact hatchback proportions rather than a boxy full-size SUV body",
+  ],
+  "Honda:Odyssey": [
+    "long, low minivan profile with a broad cabin, sliding-door tracks and a gently tapered nose",
+    "large rectangular side-glass area with a long roofline extending over the third row",
+    "wide rear tailgate framed by tall vertical tail lamps at the outer corners",
+  ],
+  "Honda:Passport": [
+    "two-row midsize SUV with a short rear overhang, broad shoulders and a tall upright cabin",
+    "wide squared wheel arches and a high beltline over large side windows",
+    "vertical rear hatch with tall corner tail lamps and a broad bumper",
+  ],
+  "Honda:Pilot": [
+    "three-row midsize SUV with a long cabin, upright tailgate and substantial rear quarter glass",
+    "tall squared wheel arches and a broad front fascia above a high ride height",
+    "large rear hatch bordered by vertical tail lamps, with a longer wheelbase than the Passport",
+  ],
+  "Honda:Ridgeline": [
+    "four-door crew-cab pickup with a short integrated bed and SUV-like unibody proportions",
+    "cab and bed form a continuous side profile, with a clearly separate open cargo bed behind the rear doors",
+    "wide tailgate across a compact pickup bed, not a full-size long-bed truck",
   ],
   "Mitsubishi:Lancer Evolution X": [
     "compact 4-door sedan silhouette with a tall fixed rear wing on twin risers",

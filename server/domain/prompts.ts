@@ -13,6 +13,7 @@ import {
   buildAeroMountingRules,
   buildStandardPrompt,
   buildVanguardConceptPrompt,
+  getCuratedSignatureCuesForModel,
   getRearAeroSpec,
   type AngleKey,
   type BodyStyle,
@@ -103,10 +104,14 @@ const VIEW_DIRECTIVES: Record<DrawingView, string> = {
 
 /** Line-art drawing of one view. Kept short on purpose: it is a low-quality, low-cost call. */
 export function drawingPrompt(config: BuildConfig, view: DrawingView, notes?: string | null): string {
+  const signatureCues = getCuratedSignatureCuesForModel(config.make, config.model);
   const lines = [
     `Clean black-and-white automotive technical line drawing (design blueprint style) of a ${vehicleName(config)} ${config.bodyStyle}.`,
     `View: ${VIEW_DIRECTIVES[view]}.`,
     `IDENTITY IS MANDATORY: it must be instantly recognisable as the real production ${config.make} ${config.model} — exact factory silhouette, roofline and greenhouse, wheelbase and overhangs, headlight, grille, tail-light and window shapes. Do not invent a generic car.`,
+    signatureCues
+      ? `CURATED MODEL SHAPE CUES: ${signatureCues.map((cue, index) => `${index + 1}) ${cue}`).join(" ")} Follow these factory details for the selected model and year.`
+      : null,
     `Fitted with ${kitDescription(config)}. Draw every kit part with clear, accurate outlines in its real mounting position.`,
     rearAeroSentence(config),
     archSentence(config),
