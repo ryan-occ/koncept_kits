@@ -21,15 +21,19 @@ Single-user car body-kit studio. **Draw first, render once:**
    (clearly labelled placeholder images, no AI charges). Real image generation requires an
    OpenAI key in Replit Secrets and image/text model names available to that account.
    Restart the workflow after changing secrets or model settings.
-4. For a fresh checkout, install dependencies with `npm ci`. The test runner uses Vitest 4
+4. Set the `PASSCODE` Replit Secret to exactly six digits to enable the page access gate.
+   Production startup requires it; the existing `SESSION_SECRET` signs the 12-hour login cookie.
+5. For a fresh checkout, install dependencies with `npm ci`. The test runner uses Vitest 4
    because the imported Vitest 3 dependency included a package blocked by the package security policy.
-5. Publishing configuration is present: Autoscale; build `npm ci && npm run build`, run
+6. Publishing configuration is present: Autoscale; build `npm ci && npm run build`, run
    `npm start`. The app has not been published as part of workspace setup.
 
 ## Settings (Secrets / env)
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `PASSCODE` | — | Six-digit page access code; required in production |
+| `SESSION_SECRET` | Replit Secret | Signs secure access-session cookies |
 | `OPENAI_API_KEY` | — | Required for real images |
 | `DATABASE_URL` | — | Postgres; without it builds live in memory and vanish on restart |
 | `IMAGE_MODEL` | `gpt-image-2.5-sunburst` | Same model the Vanguard-Concept app uses |

@@ -159,9 +159,34 @@ select:focus, input:focus, textarea:focus, button:focus-visible { outline: 2px s
 .export-list { list-style: none; display: flex; flex-direction: column; gap: 6px; color: var(--text-muted); }
 .export-list code { color: var(--text); font-size: var(--text-small); }
 
+/* ── Access code ────────────────────────────────────── */
+.access-screen {
+  min-height: 100%; display: grid; place-items: center; padding: var(--space-5);
+  background: radial-gradient(ellipse at 50% 0%, rgba(239, 68, 68, 0.08), transparent 55%), var(--bg);
+}
+.access-card {
+  width: min(100%, 400px); display: flex; flex-direction: column; gap: var(--space-4);
+  padding: 32px; border: 1px solid var(--border-strong); border-radius: var(--radius-panel); background: var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+}
+.access-card .brand { margin-bottom: var(--space-2); }
+.access-eyebrow { color: var(--accent); font-size: var(--text-label); font-weight: 700; letter-spacing: 0.1em; }
+.access-card h1 { font-family: var(--font-display); font-size: 24px; }
+.access-intro, .access-message { color: var(--text-muted); line-height: 1.5; }
+.access-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.access-form label { color: var(--text-subtle); font-size: var(--text-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.access-form input {
+  width: 100%; padding: 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-control);
+  background: var(--bg); font-size: 20px; letter-spacing: 0.3em; text-align: center;
+}
+.access-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.access-form .btn { justify-content: center; min-height: 40px; }
+.access-error { color: #fca5a5; font-size: var(--text-small); line-height: 1.45; }
+
 @media (max-width: 800px) {
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .sidebar { border-right: none; border-bottom: 1px solid var(--border); max-height: 40vh; }
   .main-inner { padding: var(--space-4); }
   .tiles { grid-template-columns: 1fr; }
+  .access-card { padding: var(--space-5); }
 }

@@ -3,6 +3,11 @@ import type {
   FavoriteVehicleImportResult, RenderAngle, UsageDto,
 } from "../../shared/types";
 
+export interface AccessStatus {
+  enabled: boolean;
+  authenticated: boolean;
+}
+
 export class ApiRequestError extends Error {
   constructor(message: string, readonly status: number, readonly code: string, readonly details?: string[]) {
     super(message);
@@ -27,6 +32,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 }
 
 export const api = {
+  accessStatus: () => request<AccessStatus>("GET", "/api/auth/status"),
+  login: (code: string) => request<AccessStatus>("POST", "/api/auth/login", { code }),
   usage: () => request<UsageDto>("GET", "/api/usage"),
   listBuilds: () => request<BuildSummaryDto[]>("GET", "/api/builds"),
   listFavoriteGroups: () => request<string[]>("GET", "/api/favorite-groups"),

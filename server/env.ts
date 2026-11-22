@@ -15,6 +15,8 @@ export const env = {
   production: process.env.NODE_ENV === "production",
   databaseUrl: process.env.DATABASE_URL?.trim() || null,
   openaiKey: process.env.OPENAI_API_KEY?.trim() || null,
+  passcode: process.env.PASSCODE?.trim() || null,
+  sessionSecret: process.env.SESSION_SECRET?.trim() || null,
   /** "mock" forces placeholder images (no OpenAI spend); default is live when a key exists. */
   aiMode: (process.env.AI_MODE === "mock" || !process.env.OPENAI_API_KEY?.trim() ? "mock" : "live") as "mock" | "live",
   // Same models the Vanguard-Concept app already uses on this OpenAI account.
