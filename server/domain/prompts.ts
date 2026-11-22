@@ -255,11 +255,14 @@ export function renderPrompt(config: BuildConfig, angle: RenderAngle): string {
       );
   const base = config.wideBody ? brief : stripWideBody(brief);
   const arches = archSentence(config);
+  // The ported brief only knows make and model, so name the exact car (trim included) here.
+  const variant = factoryVariantCue(config);
   return [
     `GEOMETRY SOURCE OF TRUTH: the attached technical line drawings were approved by the designer. ` +
       `The car's body shape, proportions, wheel design and every body-kit part's shape, size and position must match those drawings exactly. ` +
       `Do not add, remove or restyle any part that is not in the drawings. ${rearAeroSentence(config)}` +
-      (arches ? ` ${arches}` : ""),
+      (arches ? ` ${arches}` : "") +
+      `\nVEHICLE: ${vehicleName(config)}.${variant ? ` ${variant}` : ""}`,
     base,
     // Repeated last: the ported brief above can describe a wide-body stance, and the final instruction should win.
     ...(arches ? [`FINAL CHECK — ${arches}`] : []),

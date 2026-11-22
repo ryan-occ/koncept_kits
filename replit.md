@@ -25,8 +25,9 @@ Single-user car body-kit studio. **Draw first, render once:**
    Production startup requires it; the existing `SESSION_SECRET` signs the 12-hour login cookie.
 5. For a fresh checkout, install dependencies with `npm ci`. The test runner uses Vitest 4
    because the imported Vitest 3 dependency included a package blocked by the package security policy.
-6. Publishing configuration is present: Autoscale; build `npm ci && npm run build`, run
-   `npm start`. The app has not been published as part of workspace setup.
+6. Publishing configuration is present: build `npm ci && npm run build`, run `npm start`.
+   When publishing, choose **Reserved VM**, not Autoscale: drawing and render jobs run inside the
+   server process, and Autoscale can stop or duplicate it between requests, losing jobs in progress.
 
 ## Settings (Secrets / env)
 
@@ -37,7 +38,7 @@ Single-user car body-kit studio. **Draw first, render once:**
 | `OPENAI_API_KEY` | — | Required for real images |
 | `DATABASE_URL` | — | Postgres; without it builds live in memory and vanish on restart |
 | `IMAGE_MODEL` | `gpt-image-2.5-sunburst` | Same model the Vanguard-Concept app uses |
-| `TEXT_MODEL` | `gpt-6-luna` | Used once per export for part dimensions |
+| `TEXT_MODEL` | `gpt-6-luna` | Estimates part dimensions once per build, when part drawings are made |
 | `DRAWING_QUALITY` | `low` | `low` / `medium` / `high` — raise if drawings lose the car's identity |
 | `RENDER_QUALITY` | `high` | Render image quality |
 | `DAILY_IMAGE_LIMIT` | `60` | Hard cap on images per UTC day |

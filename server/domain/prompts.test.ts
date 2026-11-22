@@ -85,6 +85,13 @@ describe("Honda factory variants in generation prompts", () => {
     expect(partDrawingPrompt(accord, "front")).toContain("2017 Honda Accord Coupe");
     expect(partDrawingPrompt(accord, "front")).toContain("two-door Accord Coupe body");
   });
+
+  it("names the exact factory variant in render prompts", () => {
+    const civic = withVehicle({ ...defaultConfig(), trim: "civic-type-r" }, "Honda", "Civic", 2024);
+    const prompt = renderPrompt(civic, "front-three-quarter");
+    expect(prompt).toContain("VEHICLE: 2024 Honda Civic Type R.");
+    expect(prompt).toContain("FACTORY VARIANT: Civic Type R high-performance hatchback");
+  });
 });
 
 describe("curated Honda drawing cues", () => {

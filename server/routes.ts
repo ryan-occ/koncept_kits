@@ -147,6 +147,10 @@ function id(req: Request): number {
   return value;
 }
 
+function isBodyParserError(error: unknown, type: string): boolean {
+  return typeof error === "object" && error !== null && (error as { type?: unknown }).type === type;
+}
+
 function sendImage(res: Response, image: { data: Buffer; mime: string }) {
   // URLs carry a revision or a unique render id, so the bytes never change.
   res.setHeader("Content-Type", image.mime);
@@ -156,6 +160,8 @@ function sendImage(res: Response, image: { data: Buffer; mime: string }) {
 
 export function apiRouter(studio: Studio) {
   const router = express.Router();
+  // A full favourites backup (up to 10,000 vehicles) is around 1-2 MB; every other body is small.
+  router.use("/favorites/import", express.json({ limit: "4mb" }));
   router.use(express.json({ limit: "256kb" }));
 
   router.get("/healthz", (_req, res) => { res.json({ ok: true }); });
@@ -249,6 +255,10 @@ export function apiRouter(studio: Studio) {
       res.status(400).json({ error: error.issues.map(i => `${i.path.join(".") || "body"}: ${i.message}`).join("; "), code: "INVALID" });
     } else if (error instanceof FavoriteBackupValidationError) {
       res.status(400).json({ error: error.message, code: "INVALID_FAVORITE_BACKUP", details: error.details });
+    } else if (isBodyParserError(error, "entity.too.large")) {
+      res.status(413).json({ error: "That upload is too large.", code: "TOO_LARGE" });
+    } else if (isBodyParserError(error, "entity.parse.failed")) {
+      res.status(400).json({ error: "The request body is not valid JSON.", code: "INVALID_JSON" });
     } else if (error instanceof StudioError || error instanceof AiError) {
       res.status(error.status).json({ error: error.message, code: error.code });
     } else {

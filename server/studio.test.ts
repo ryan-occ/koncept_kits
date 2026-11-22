@@ -46,6 +46,31 @@ async function drawAndWait(app: express.Express, studio: Studio, id: number) {
   await studio.waitForJob(id);
 }
 
+describe("request body errors", () => {
+  it("accepts favourites backups larger than the default body limit", async () => {
+    const { app } = setup();
+    const favorite = { make: "Honda", model: "Civic", year: 2024, groupName: "Favorites" };
+    const backup = {
+      format: "vanguard-draft-favorites", version: 1, exportedAt: "2026-11-22T00:00:00.000Z",
+      groups: ["Favorites"], favorites: Array.from({ length: 10_000 }, () => favorite),
+    };
+    expect(JSON.stringify(backup).length).toBeGreaterThan(256 * 1024);
+    const res = await request(app).post("/api/favorites/import").send(backup);
+    expect(res.status).not.toBe(413);
+    expect(res.status).toBeLessThan(500);
+  });
+
+  it("answers malformed and oversized bodies with clear client errors", async () => {
+    const { app } = setup();
+    const malformed = await request(app).post("/api/builds").set("Content-Type", "application/json").send("{not json");
+    expect(malformed.status).toBe(400);
+    expect(malformed.body.code).toBe("INVALID_JSON");
+    const huge = await request(app).post("/api/builds").send({ name: "x".repeat(300 * 1024) });
+    expect(huge.status).toBe(413);
+    expect(huge.body.code).toBe("TOO_LARGE");
+  });
+});
+
 describe("drawing-first workflow", () => {
   it("exports and restores favorites while rejecting invalid backup entries before saving", async () => {
     const { app } = setup();
