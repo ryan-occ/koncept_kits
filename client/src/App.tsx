@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BuildConfig, BuildDto, BuildSummaryDto, UsageDto } from "../../shared/types";
-import { defaultConfig } from "../../shared/defaults";
+import { defaultBuildName, defaultConfig, syncBuildNameWithVehicle } from "../../shared/defaults";
 import { api } from "./api";
 import { Sidebar } from "./components/Sidebar";
 import { BuildForm } from "./components/BuildForm";
@@ -91,8 +91,14 @@ export function App() {
 
   const queueSave = (patch: { name?: string; config?: BuildConfig }) => {
     if (!build) return;
-    pendingPatch.current = { ...pendingPatch.current, ...patch };
-    setBuild({ ...build, ...patch } as BuildDto);
+    const name = patch.name !== undefined
+      ? patch.name
+      : patch.config
+        ? syncBuildNameWithVehicle(build.name, build.config, patch.config)
+        : build.name;
+    const nextPatch = name !== build.name ? { ...patch, name } : patch;
+    pendingPatch.current = { ...pendingPatch.current, ...nextPatch };
+    setBuild({ ...build, ...nextPatch } as BuildDto);
     setSaving("pending");
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => { void flush().catch(() => {}); }, 600);
@@ -136,7 +142,7 @@ export function App() {
     try {
       await flush();
       const config = defaultConfig();
-      const created = await api.createBuild(`${config.make} ${config.model} build`, config);
+      const created = await api.createBuild(defaultBuildName(config), config);
       await refreshList();
       setBuild(created);
       setStep("build");
@@ -192,7 +198,7 @@ export function App() {
                 value={build.name}
                 maxLength={80}
                 onChange={e => queueSave({ name: e.target.value })}
-                onBlur={() => { if (!build.name.trim()) queueSave({ name: `${build.config.make} ${build.config.model} build` }); }}
+                onBlur={() => { if (!build.name.trim()) queueSave({ name: defaultBuildName(build.config) }); }}
               />
               <span className="save-state" aria-live="polite">
                 {saving === "pending" || saving === "saving" ? "Saving…" : saving === "saved" ? "Saved" : ""}

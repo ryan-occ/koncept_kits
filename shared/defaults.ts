@@ -5,6 +5,31 @@ import {
 import { getCompatibleSpoilerTypes, isTrackWingKitId } from "./car-rules";
 import { PART_IDS, type BuildConfig, type RearAero } from "./types";
 
+export type VehicleNameParts = Pick<BuildConfig, "make" | "model">;
+
+export function defaultBuildName({ make, model }: VehicleNameParts): string {
+  return `${make} ${model} build`;
+}
+
+const generatedBuildNames = new Set(
+  Object.entries(CAR_DB).flatMap(([make, models]) =>
+    Object.keys(models).map(model => defaultBuildName({ make, model })),
+  ),
+);
+
+/** Rename catalog-generated defaults on vehicle edits, but preserve custom titles. */
+export function syncBuildNameWithVehicle(
+  name: string,
+  currentVehicle: VehicleNameParts,
+  nextVehicle: VehicleNameParts,
+): string {
+  if (currentVehicle.make === nextVehicle.make && currentVehicle.model === nextVehicle.model) return name;
+  // Recognize defaults from any catalog vehicle so builds made before this
+  // behavior was added can recover from an earlier make/model mismatch.
+  if (!generatedBuildNames.has(name)) return name;
+  return defaultBuildName(nextVehicle);
+}
+
 /** Rear aero choices for a config, using the server-side compatibility rules ported in car-rules. */
 export function aeroOptions(config: Pick<BuildConfig, "bodyStyle" | "category" | "kitStyleId">): { options: RearAero[]; locked: boolean } {
   if (isTrackWingKitId(config.kitStyleId) || config.category === "hypercar") return { options: ["gt-wing"], locked: true };

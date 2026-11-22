@@ -6,7 +6,7 @@ import { mockImage, type AiProvider, type ImageRequest } from "./ai";
 import { apiRouter } from "./routes";
 import { MemoryStore } from "./store";
 import { Studio } from "./studio";
-import { defaultConfig } from "../shared/defaults";
+import { defaultConfig, withVehicle } from "../shared/defaults";
 import { estimatePartSpecs } from "./domain/part-specs";
 import { PART_LABELS } from "../shared/types";
 import type { BuildDto } from "../shared/types";
@@ -47,6 +47,24 @@ async function drawAndWait(app: express.Express, studio: Studio, id: number) {
 }
 
 describe("drawing-first workflow", () => {
+  it("stores a vehicle name and config together in the build and list", async () => {
+    const { app } = setup();
+    const build = await createBuild(app);
+    const config = withVehicle(build.config, "Honda", "Civic", 2026);
+
+    const updated = await request(app)
+      .patch(`/api/builds/${build.id}`)
+      .send({ name: "Honda Civic build", config });
+    expect(updated.status).toBe(200);
+    expect(updated.body.name).toBe("Honda Civic build");
+    expect(updated.body.config).toMatchObject({ make: "Honda", model: "Civic", year: 2026 });
+
+    const detail = await request(app).get(`/api/builds/${build.id}`);
+    expect(detail.body.name).toBe("Honda Civic build");
+    const list = await request(app).get("/api/builds");
+    expect(list.body.find((entry: { id: number }) => entry.id === build.id).name).toBe("Honda Civic build");
+  });
+
   it("draws the side view first and anchors the other views to it", async () => {
     const { app, studio, calls } = setup();
     const build = await createBuild(app);
