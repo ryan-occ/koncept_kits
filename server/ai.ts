@@ -47,6 +47,30 @@ export interface AiProvider {
   readonly mode: "live" | "mock";
   image(request: ImageRequest): Promise<ImageResult>;
   json(prompt: string, signal?: AbortSignal): Promise<{ value: unknown; inputTokens: number; outputTokens: number }>;
+  /** JSON answer researched on the web, with the pages it cited. Optional: callers fall back to json(). */
+  research?(prompt: string, signal?: AbortSignal): Promise<ResearchResult>;
+}
+
+export interface ResearchResult {
+  value: unknown;
+  sources: Array<{ title: string; url: string }>;
+  /** False when web search was unavailable and the answer comes from the model's own knowledge. */
+  webSearch: boolean;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** Models sometimes wrap JSON in a code fence or add a sentence around it. */
+export function parseJsonText(text: string): unknown {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+  const candidate = (fenced ?? text).trim();
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    const start = candidate.indexOf("{"), end = candidate.lastIndexOf("}");
+    if (start >= 0 && end > start) return JSON.parse(candidate.slice(start, end + 1));
+    throw new AiError("The research answer was not valid JSON.", 502, "AI_BAD_JSON");
+  }
 }
 
 let cachedClient: OpenAI | null = null;
@@ -133,6 +157,41 @@ const live: AiProvider = {
         outputTokens: response.usage?.completion_tokens ?? 0,
       };
     } catch (error) {
+      throw toAiError(error);
+    }
+  },
+  async research(prompt, signal) {
+    try {
+      const response = await client().responses.create({
+        model: env.textModel,
+        tools: [{ type: "web_search" }],
+        input: prompt,
+      }, { signal });
+      const sources = new Map<string, string>();
+      for (const item of response.output ?? []) {
+        if (item.type !== "message") continue;
+        for (const part of item.content) {
+          if (part.type !== "output_text") continue;
+          for (const note of part.annotations ?? []) {
+            if (note.type === "url_citation" && !sources.has(note.url)) sources.set(note.url, note.title || note.url);
+          }
+        }
+      }
+      return {
+        value: parseJsonText(response.output_text ?? ""),
+        sources: [...sources].map(([url, title]) => ({ url, title })),
+        webSearch: true,
+        inputTokens: response.usage?.input_tokens ?? 0,
+        outputTokens: response.usage?.output_tokens ?? 0,
+      };
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      // The configured text model may not support the web search tool: answer from its own knowledge instead.
+      if (status === 400 || status === 404) {
+        console.warn("[ai] web search unavailable for TEXT_MODEL, researching without it:", error instanceof Error ? error.message.slice(0, 160) : error);
+        const fallback = await live.json(prompt, signal);
+        return { ...fallback, sources: [], webSearch: false };
+      }
       throw toAiError(error);
     }
   },

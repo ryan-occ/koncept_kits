@@ -9,6 +9,8 @@
  * instead of a chain of LLM "agent" briefs.
  */
 import type { ConditioningImage, Img } from "../ai";
+import type { DrawingProfile } from "../vehicles/library";
+import type { VehiclePhotoView } from "../../shared/vehicles";
 import {
   buildAeroMountingRules,
   buildStandardPrompt,
@@ -111,7 +113,7 @@ const VIEW_DIRECTIVES: Record<DrawingView, string> = {
 };
 
 /** Line-art drawing of one view. Kept short on purpose: it is a low-quality, low-cost call. */
-export function drawingPrompt(config: BuildConfig, view: DrawingView, notes?: string | null): string {
+export function drawingPrompt(config: BuildConfig, view: DrawingView, notes?: string | null, profile?: DrawingProfile | null): string {
   const signatureCues = getCuratedSignatureCuesForModel(config.make, config.model);
   const lines = [
     `Clean black-and-white automotive technical line drawing (design blueprint style) of a ${vehicleName(config)} ${config.bodyStyle}.`,
@@ -121,6 +123,7 @@ export function drawingPrompt(config: BuildConfig, view: DrawingView, notes?: st
     signatureCues
       ? `CURATED MODEL SHAPE CUES: ${signatureCues.map((cue, index) => `${index + 1}) ${cue}`).join(" ")} Follow these factory details for the selected model and year.`
       : null,
+    ...profileLines(profile),
     `Fitted with ${kitDescription(config)}. Draw every kit part with clear, accurate outlines in its real mounting position.`,
     rearAeroSentence(config),
     archSentence(config),
@@ -135,13 +138,49 @@ export function drawingPrompt(config: BuildConfig, view: DrawingView, notes?: st
   return lines.join("\n");
 }
 
+/** Facts from the user-verified vehicle profile; empty when there is none. */
+function profileLines(profile: DrawingProfile | null | undefined): string[] {
+  if (!profile) return [];
+  const d = profile.dimensions;
+  const size = [
+    d.lengthMm && `length ${d.lengthMm} mm`, d.widthMm && `width ${d.widthMm} mm`,
+    d.heightMm && `height ${d.heightMm} mm`, d.wheelbaseMm && `wheelbase ${d.wheelbaseMm} mm`,
+  ].filter(Boolean);
+  const gen = profile.generation ? `${profile.generation} generation, ` : "";
+  return [
+    `VERIFIED VEHICLE PROFILE (${gen}model years ${profile.yearFrom}-${profile.yearTo}).` +
+      (size.length ? ` Factory exterior size: ${size.join(", ")}; keep these proportions.` : ""),
+    profile.signatureCues.length
+      ? `VERIFIED DESIGN DETAILS: ${profile.signatureCues.map((cue, i) => `${i + 1}) ${cue}`).join(" ")}`
+      : null,
+    profile.faceliftNotes ? `MODEL-YEAR DETAILS: ${profile.faceliftNotes} Draw the version that matches the selected model year.` : null,
+  ].filter((line): line is string => !!line);
+}
+
+/** Which reference photo best shows a drawing view. */
+const PHOTO_PREFERENCE: Record<DrawingView, VehiclePhotoView[]> = {
+  side: ["side", "three-quarter", "front", "rear"],
+  front: ["front", "three-quarter", "side", "rear"],
+  rear: ["rear", "three-quarter", "side", "front"],
+  top: ["three-quarter", "side", "front", "rear"],
+};
+
 /** The side drawing is drawn first and anchors the other three views. */
 export function drawingConditioning(
   view: DrawingView,
   sideDrawing: Img | null,
   previous: Img | null,
+  profile?: DrawingProfile | null,
 ): ConditioningImage[] {
   const out: ConditioningImage[] = [];
+  // One real photo of the stock car, when the user added any to a verified profile: the strongest identity anchor.
+  const photo = PHOTO_PREFERENCE[view].map(v => profile?.photos.find(p => p.view === v)).find(Boolean);
+  if (photo) {
+    out.push({
+      data: photo.data, mime: photo.mime, role: "reference", label: `photo of the real car (${photo.view})`,
+      directive: "This is a photograph of the real production car. Match its factory body shape, proportions, lights, grille and window shapes. Ignore its colour, wheels, background, reflections and any aftermarket parts, and keep the line-drawing style.",
+    });
+  }
   if (previous) {
     out.push({
       ...previous, role: "base", label: `current ${DRAWING_VIEW_LABELS[view].toLowerCase()} drawing`,

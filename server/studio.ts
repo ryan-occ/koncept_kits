@@ -11,6 +11,7 @@
 import { AiError, type AiProvider, type Img } from "./ai";
 import { env } from "./env";
 import type { Store, BuildRow, DrawingSetRow, PartSpecCache } from "./store";
+import type { VehicleLibrary } from "./vehicles/library";
 import { configSignature } from "./domain/signature";
 import {
   drawingConditioning, drawingPrompt, includedParts, partConditioning, partDrawingPrompt, renderConditioning, renderPrompt,
@@ -47,7 +48,13 @@ function message(error: unknown): string {
 export class Studio {
   private jobs = new Map<number, Job>();
 
-  constructor(readonly store: Store, readonly ai: AiProvider, private readonly limits = { dailyImageLimit: env.dailyImageLimit }) {}
+  constructor(
+    readonly store: Store,
+    readonly ai: AiProvider,
+    private readonly limits = { dailyImageLimit: env.dailyImageLimit },
+    /** Verified vehicle profiles add size, design details and reference photos to the car drawings. */
+    private readonly vehicles?: Pick<VehicleLibrary, "forDrawing">,
+  ) {}
 
   // ─── Queries ──────────────────────────────────────────────────────────────
 
@@ -221,13 +228,15 @@ export class Studio {
       const side = await this.store.getDrawing(set.id, "side");
       return side ? { data: side.data, mime: side.mime } : null;
     };
+    const { make, model, year } = build.config;
+    const profile = (await this.vehicles?.forDrawing({ make, model, year })) ?? null;
     const drawOne = async (view: DrawingView) => {
       const previous = notes ? await this.store.getDrawing(set.id, view) : null;
       const result = await this.ai.image({
         kind: "drawing",
-        prompt: drawingPrompt(build.config, view, notes),
+        prompt: drawingPrompt(build.config, view, notes, profile),
         quality: env.drawingQuality,
-        conditioning: drawingConditioning(view, await loadSide(), previous ? { data: previous.data, mime: previous.mime } : null),
+        conditioning: drawingConditioning(view, await loadSide(), previous ? { data: previous.data, mime: previous.mime } : null, profile),
         mockLabel: `${build.config.make} ${build.config.model} — ${view.toUpperCase()} VIEW`,
       });
       await this.store.recordUsage("drawing", result.inputTokens, result.outputTokens);

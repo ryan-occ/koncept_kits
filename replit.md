@@ -12,6 +12,22 @@ Single-user car body-kit studio. **Draw first, render once:**
 5. **Export** — production ZIP: approved drawings, renders, spec sheet PDF, BOM CSV, part specs,
    dimensioned per-part PDF/SVG sheets.
 
+## Vehicle library
+
+The **Vehicle profile** card under the car picker keeps what the app learns about each car, saved in Postgres:
+
+- **Research this car** asks `TEXT_MODEL` (with web search when the model supports it) for the generation,
+  model years, exterior size, signature design details and facelift changes, with sources. A few cents per car.
+- Researched profiles are drafts: check them, correct them with **Edit**, then **Verify**. Only verified
+  profiles are added to drawing prompts. Editing or researching again turns a profile back into a draft.
+- **Reference photos** of the stock car (side, front, rear, 3/4) are sent with each car drawing once the
+  profile is verified. This is the most reliable way to get rare or new cars right.
+- **Add a car not in the list** adds any make, model and year to the menus and researches it.
+- **New model years:** once a week (with a database) the app checks NHTSA's free vPIC service for
+  new model years of the models it knows, and adds them to the menus (about 5 minutes, US market only).
+  New model names are not added automatically, because NHTSA lists engine variants (530i, 540i…) as
+  models; add new cars by hand. **Check now** runs it on demand. Profiles over a year old are flagged.
+
 ## Run on Replit
 
 1. Click **Run** to start the **Start application** workflow (`npm run dev`) on port 5000.
@@ -38,7 +54,7 @@ Single-user car body-kit studio. **Draw first, render once:**
 | `OPENAI_API_KEY` | — | Required for real images |
 | `DATABASE_URL` | — | Postgres; without it builds live in memory and vanish on restart |
 | `IMAGE_MODEL` | `gpt-image-2.5-sunburst` | Same model the Vanguard-Concept app uses |
-| `TEXT_MODEL` | `gpt-6-luna` | Estimates part dimensions once per build, when part drawings are made |
+| `TEXT_MODEL` | `gpt-6-luna` | Estimates part dimensions when part drawings are made, and researches vehicle profiles |
 | `DRAWING_QUALITY` | `low` | `low` / `medium` / `high` — raise if drawings lose the car's identity |
 | `RENDER_QUALITY` | `high` | Render image quality |
 | `DAILY_IMAGE_LIMIT` | `60` | Hard cap on images per UTC day |
@@ -47,7 +63,8 @@ Single-user car body-kit studio. **Draw first, render once:**
 ## Layout
 
 - `server/` — Express API (`routes.ts`), workflow + jobs (`studio.ts`), OpenAI wrapper (`ai.ts`),
-  storage (`store.ts`: Postgres or in-memory), prompts (`domain/prompts.ts`), export (`export/`).
+  storage (`store.ts`: Postgres or in-memory), prompts (`domain/prompts.ts`), export (`export/`),
+  vehicle library (`vehicles/`: storage, NHTSA check, AI research, routes).
 - `shared/` — build config schema (`types.ts`), catalog and car/kit rules ported from Vanguard-Concept.
 - `client/` — React UI (Vite). In dev, Vite runs inside the Express process on the same port.
 

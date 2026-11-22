@@ -83,7 +83,7 @@ export interface Store {
   getPartSpecs(buildId: number): Promise<PartSpecCache | null>;
   putPartSpecs(buildId: number, cache: PartSpecCache): Promise<void>;
 
-  recordUsage(kind: "drawing" | "render" | "spec", inputTokens: number, outputTokens: number): Promise<void>;
+  recordUsage(kind: "drawing" | "render" | "spec" | "research", inputTokens: number, outputTokens: number): Promise<void>;
   imagesSince(since: Date): Promise<number>;
 }
 
@@ -203,9 +203,9 @@ export class MemoryStore implements Store {
   async getRender(id: number) { return this.renders.find(r => r.id === id) ?? null; }
   async getPartSpecs(buildId: number) { return this.specs.get(buildId) ?? null; }
   async putPartSpecs(buildId: number, cache: PartSpecCache) { this.specs.set(buildId, cache); }
-  async recordUsage(kind: "drawing" | "render" | "spec") { this.usage.push({ kind, at: new Date() }); }
+  async recordUsage(kind: "drawing" | "render" | "spec" | "research") { this.usage.push({ kind, at: new Date() }); }
   async imagesSince(since: Date) {
-    return this.usage.filter(u => u.kind !== "spec" && u.at >= since).length;
+    return this.usage.filter(u => (u.kind === "drawing" || u.kind === "render") && u.at >= since).length;
   }
 }
 
@@ -465,11 +465,11 @@ export class PostgresStore implements Store {
   async putPartSpecs(buildId: number, cache: PartSpecCache) {
     await this.q("UPDATE builds SET part_specs = $2 WHERE id = $1", [buildId, cache]);
   }
-  async recordUsage(kind: "drawing" | "render" | "spec", inputTokens: number, outputTokens: number) {
+  async recordUsage(kind: "drawing" | "render" | "spec" | "research", inputTokens: number, outputTokens: number) {
     await this.q("INSERT INTO ai_usage (kind, input_tokens, output_tokens) VALUES ($1, $2, $3)", [kind, inputTokens, outputTokens]);
   }
   async imagesSince(since: Date) {
-    const [row] = await this.q("SELECT count(*)::int AS n FROM ai_usage WHERE kind <> 'spec' AND created_at >= $1", [since]);
+    const [row] = await this.q("SELECT count(*)::int AS n FROM ai_usage WHERE kind IN ('drawing', 'render') AND created_at >= $1", [since]);
     return row?.n ?? 0;
   }
 }

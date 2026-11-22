@@ -2,6 +2,9 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { z } from "zod";
 import { AiError } from "./ai";
 import { Studio, StudioError } from "./studio";
+import type { VehicleLibrary } from "./vehicles/library";
+import { vehiclesRouter } from "./vehicles/routes";
+import type { VehicleCatalog } from "../shared/vehicles";
 import { CAR_DB, getHondaFactoryVariant } from "../shared/catalog";
 import {
   BuildConfigSchema, DRAWING_VIEWS, favoriteVehicleKey, PART_IDS, RENDER_ANGLES, partKey,
@@ -14,14 +17,15 @@ const UpdateBody = z.object({ name: Name.optional(), config: BuildConfigSchema.o
 const DRAWING_KEYS = [...DRAWING_VIEWS, ...PART_IDS.map(partKey)] as [DrawingKey, ...DrawingKey[]];
 const RedrawBody = z.object({ views: z.array(z.enum(DRAWING_KEYS)).min(1), notes: z.string().trim().min(1).max(1500) }).strict();
 const RenderBody = z.object({ angles: z.array(z.enum(RENDER_ANGLES)).min(1) }).strict();
-const FavoriteVehicleBody = z.object({
+/** Favourites may name any car in the catalog, including cars the vehicle library has added. */
+const favoriteVehicleBody = (catalog: VehicleCatalog) => z.object({
   make: z.string().trim().min(1).max(60),
   model: z.string().trim().min(1).max(80),
   year: z.number().int().min(1900).max(2100),
   trim: z.string().trim().min(1).max(40).optional(),
   groupName: z.string().trim().min(1).max(40).optional(),
 }).strict().superRefine((favorite, ctx) => {
-  if (!CAR_DB[favorite.make]?.[favorite.model]?.includes(favorite.year)) {
+  if (!catalog[favorite.make]?.[favorite.model]?.includes(favorite.year)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["year"], message: "Choose a model year from the vehicle catalog." });
   }
   if (favorite.trim && !getHondaFactoryVariant(favorite.make, favorite.model, favorite.year, favorite.trim)) {
@@ -36,7 +40,7 @@ const FavoriteBackupMetadata = z.object({
   exportedAt: z.string().datetime(),
 });
 
-const favoriteVehicle = (input: unknown): FavoriteVehicle => FavoriteVehicleBody.parse(input);
+const favoriteVehicle = (input: unknown, catalog: VehicleCatalog): FavoriteVehicle => favoriteVehicleBody(catalog).parse(input);
 
 class FavoriteBackupValidationError extends Error {
   constructor(readonly details: string[]) {
@@ -44,8 +48,9 @@ class FavoriteBackupValidationError extends Error {
   }
 }
 
-function validateFavoriteBackup(input: unknown): Omit<FavoriteVehicleBackup, "exportedAt"> {
+function validateFavoriteBackup(input: unknown, catalog: VehicleCatalog): Omit<FavoriteVehicleBackup, "exportedAt"> {
   const details: string[] = [];
+  const FavoriteVehicleBody = favoriteVehicleBody(catalog);
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new FavoriteBackupValidationError(["backup: Expected a JSON object."]);
   }
@@ -127,8 +132,8 @@ function validateFavoriteBackup(input: unknown): Omit<FavoriteVehicleBackup, "ex
   };
 }
 
-async function favoriteInExistingGroup(studio: Studio, input: unknown): Promise<FavoriteVehicle> {
-  const favorite = favoriteVehicle(input);
+async function favoriteInExistingGroup(studio: Studio, input: unknown, catalog: VehicleCatalog): Promise<FavoriteVehicle> {
+  const favorite = favoriteVehicle(input, catalog);
   const groupName = favorite.groupName ?? "Favorites";
   const canonicalName = (await studio.store.listFavoriteGroups())
     .find(name => name.toLocaleLowerCase() === groupName.toLocaleLowerCase());
@@ -136,8 +141,8 @@ async function favoriteInExistingGroup(studio: Studio, input: unknown): Promise<
   return { ...favorite, groupName: canonicalName };
 }
 
-type Handler = (req: Request, res: Response) => Promise<unknown>;
-const wrap = (handler: Handler) => (req: Request, res: Response, next: NextFunction) => {
+export type Handler = (req: Request, res: Response) => Promise<unknown>;
+export const wrap = (handler: Handler) => (req: Request, res: Response, next: NextFunction) => {
   handler(req, res).catch(next);
 };
 
@@ -158,8 +163,9 @@ function sendImage(res: Response, image: { data: Buffer; mime: string }) {
   res.send(image.data);
 }
 
-export function apiRouter(studio: Studio) {
+export function apiRouter(studio: Studio, library?: VehicleLibrary) {
   const router = express.Router();
+  const catalog = async (): Promise<VehicleCatalog> => (library ? (await library.catalog()).catalog : CAR_DB);
   // A full favourites backup (up to 10,000 vehicles) is around 1-2 MB; every other body is small.
   router.use("/favorites/import", express.json({ limit: "4mb" }));
   router.use(express.json({ limit: "256kb" }));
@@ -181,16 +187,16 @@ export function apiRouter(studio: Studio) {
     res.json(backup);
   }));
   router.post("/favorites/import", wrap(async (req, res) => {
-    const backup = validateFavoriteBackup(req.body);
+    const backup = validateFavoriteBackup(req.body, await catalog());
     const result = await studio.store.importFavoriteBundle(backup.groups, backup.favorites);
     res.json(result);
   }));
   router.get("/favorites", wrap(async (_req, res) => res.json(await studio.store.listFavoriteVehicles())));
   router.put("/favorites", wrap(async (req, res) =>
-    res.status(201).json(await studio.store.saveFavoriteVehicle(await favoriteInExistingGroup(studio, req.body))),
+    res.status(201).json(await studio.store.saveFavoriteVehicle(await favoriteInExistingGroup(studio, req.body, await catalog()))),
   ));
   router.delete("/favorites", wrap(async (req, res) => {
-    await studio.store.deleteFavoriteVehicle(await favoriteInExistingGroup(studio, req.body));
+    await studio.store.deleteFavoriteVehicle(await favoriteInExistingGroup(studio, req.body, await catalog()));
     res.status(204).end();
   }));
 
@@ -248,6 +254,8 @@ export function apiRouter(studio: Studio) {
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     res.send(zip);
   }));
+
+  if (library) router.use("/vehicles", vehiclesRouter(library));
 
   router.use((_req, res) => { res.status(404).json({ error: "Not found.", code: "NOT_FOUND" }); });
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

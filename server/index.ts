@@ -6,6 +6,8 @@ import { createAiProvider } from "./ai";
 import { env } from "./env";
 import { apiRouter } from "./routes";
 import { createStore } from "./store";
+import { VehicleLibrary } from "./vehicles/library";
+import { createVehicleStore } from "./vehicles/store";
 import { Studio } from "./studio";
 
 async function main() {
@@ -16,13 +18,21 @@ async function main() {
   });
   const store = createStore(env.databaseUrl);
   await store.init();
-  const studio = new Studio(store, createAiProvider());
+  const ai = createAiProvider();
+  const vehicleStore = createVehicleStore(env.databaseUrl);
+  await vehicleStore.init();
+  const vehicles = new VehicleLibrary(vehicleStore, ai, {
+    onUsage: (inputTokens, outputTokens) => store.recordUsage("research", inputTokens, outputTokens),
+  });
+  // Weekly NHTSA check needs somewhere to keep its results; without a database use "Check now" instead.
+  if (env.databaseUrl) vehicles.startSchedule();
+  const studio = new Studio(store, ai, undefined, vehicles);
 
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
   app.use("/api", accessGate.router);
-  app.use("/api", apiRouter(studio));
+  app.use("/api", apiRouter(studio, vehicles));
 
   const here = path.dirname(fileURLToPath(import.meta.url));
   if (env.production) {

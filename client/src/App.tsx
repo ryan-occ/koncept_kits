@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { favoriteVehicleKey, type BuildConfig, type BuildDto, type BuildSummaryDto, type FavoriteVehicle, type UsageDto } from "../../shared/types";
-import { defaultBuildName, defaultConfig, syncBuildNameWithVehicle } from "../../shared/defaults";
+import { defaultBuildName, defaultConfig, syncBuildNameWithVehicle, withVehicle } from "../../shared/defaults";
+import type { VehicleCatalogDto } from "../../shared/vehicles";
 import { ApiRequestError, api } from "./api";
 import { Sidebar } from "./components/Sidebar";
 import { BuildForm } from "./components/BuildForm";
 import { DrawingsStep } from "./components/DrawingsStep";
 import { RendersStep } from "./components/RendersStep";
 import { ExportStep } from "./components/ExportStep";
+import { VehicleLibraryCard } from "./components/VehicleLibraryCard";
 
 export type Step = "build" | "drawings" | "renders" | "export";
 const STEPS: Array<{ id: Step; label: string }> = [
@@ -39,6 +41,7 @@ export function App() {
   const [favoriteGroups, setFavoriteGroups] = useState<string[]>([]);
   const [favoriteBackupReport, setFavoriteBackupReport] = useState<{ kind: "success" | "error"; message: string; details?: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [vehicleCatalog, setVehicleCatalog] = useState<VehicleCatalogDto | null>(null);
   const [saving, setSaving] = useState<"idle" | "pending" | "saving" | "saved">("idle");
   const pendingPatch = useRef<{ name?: string; config?: BuildConfig } | null>(null);
   const saveTimer = useRef<number | null>(null);
@@ -66,6 +69,11 @@ export function App() {
       .then(list => { if (list[0]) void open(list[0].id); })
       .catch(e => { setBuilds([]); setError(errorText(e)); });
   }, [refreshList, open]);
+
+  useEffect(() => {
+    // Menus fall back to the built-in list until the library's additions arrive.
+    api.vehicleCatalog().then(setVehicleCatalog).catch(e => setError(errorText(e)));
+  }, []);
 
   useEffect(() => {
     Promise.all([api.listFavoriteVehicles(), api.listFavoriteGroups()])
@@ -330,6 +338,17 @@ export function App() {
                 disabled={jobRunning}
                 onChange={config => queueSave({ config })}
                 onNext={() => setStep("drawings")}
+                catalog={vehicleCatalog?.catalog}
+                vehiclePanel={(
+                  <VehicleLibraryCard
+                    car={{ make: build.config.make, model: build.config.model, year: build.config.year }}
+                    aiMode={usage?.aiMode ?? null}
+                    catalog={vehicleCatalog}
+                    disabled={jobRunning}
+                    onCatalogChange={setVehicleCatalog}
+                    onPickCar={car => queueSave({ config: withVehicle({ ...build.config, trim: undefined }, car.make, car.model, car.year) })}
+                  />
+                )}
               />
             )}
             {step === "drawings" && (

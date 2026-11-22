@@ -2,6 +2,7 @@ import type {
   BuildConfig, BuildDto, BuildSummaryDto, DrawingKey, FavoriteVehicle, FavoriteVehicleBackup,
   FavoriteVehicleImportResult, RenderAngle, UsageDto,
 } from "../../shared/types";
+import type { VehicleCatalogDto, VehiclePhotoView, VehicleProfileDto, VehicleProfileEdit, VehicleRef } from "../../shared/vehicles";
 
 export interface AccessStatus {
   enabled: boolean;
@@ -52,6 +53,28 @@ export const api = {
   approve: (id: number) => request<BuildDto>("POST", `/api/builds/${id}/drawings/approve`),
   reopen: (id: number) => request<BuildDto>("POST", `/api/builds/${id}/drawings/reopen`),
   render: (id: number, angles: RenderAngle[]) => request<BuildDto>("POST", `/api/builds/${id}/renders`, { angles }),
+  vehicleCatalog: () => request<VehicleCatalogDto>("GET", "/api/vehicles/catalog"),
+  addVehicle: (car: VehicleRef) => request<{ car: VehicleRef; profile: VehicleProfileDto }>("POST", "/api/vehicles/catalog", car),
+  checkNewModels: () => request<VehicleCatalogDto>("POST", "/api/vehicles/sync"),
+  vehicleProfile: (car: VehicleRef) =>
+    request<VehicleProfileDto | null>("GET", `/api/vehicles/profile?${new URLSearchParams({ make: car.make, model: car.model, year: String(car.year) })}`),
+  researchVehicle: (car: VehicleRef) => request<VehicleProfileDto>("POST", "/api/vehicles/research", car),
+  refreshVehicleProfile: (id: number) => request<VehicleProfileDto>("POST", `/api/vehicles/profiles/${id}/refresh`),
+  editVehicleProfile: (id: number, edit: VehicleProfileEdit) => request<VehicleProfileDto>("PUT", `/api/vehicles/profiles/${id}`, edit),
+  verifyVehicleProfile: (id: number) => request<VehicleProfileDto>("POST", `/api/vehicles/profiles/${id}/verify`),
+  deleteVehicleProfile: (id: number) => request<void>("DELETE", `/api/vehicles/profiles/${id}`),
+  deleteVehiclePhoto: (id: number) => request<void>("DELETE", `/api/vehicles/photos/${id}`),
+  async addVehiclePhoto(id: number, view: VehiclePhotoView, file: File): Promise<VehicleProfileDto> {
+    let res: Response;
+    try {
+      res = await fetch(`/api/vehicles/profiles/${id}/photos?view=${view}`, { method: "POST", headers: { "Content-Type": file.type }, body: file });
+    } catch {
+      throw new ApiRequestError("Can't reach the server. Check that it is running.", 0, "NETWORK");
+    }
+    const data = await res.json().catch(() => null) as (VehicleProfileDto & { error?: string; code?: string }) | null;
+    if (!res.ok) throw new ApiRequestError(data?.error ?? `Upload failed (${res.status}).`, res.status, data?.code ?? "HTTP");
+    return data!;
+  },
   /** Fetches the ZIP so errors (e.g. not approved) can be shown instead of downloading a JSON file. */
   async exportZip(id: number): Promise<{ blob: Blob; filename: string }> {
     const res = await fetch(`/api/builds/${id}/export`);

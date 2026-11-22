@@ -89,7 +89,7 @@ function SearchableSelector({ id, value, options, placeholder, aliases, onSelect
 
 export function BuildForm({
   config, favorites, favoriteGroups, favoriteBackupReport, onToggleFavorite, onCreateFavoriteGroup,
-  onExportFavorites, onImportFavorites, hasDrawings, disabled, onChange, onNext,
+  onExportFavorites, onImportFavorites, hasDrawings, disabled, onChange, onNext, catalog = CAR_DB, vehiclePanel,
 }: {
   config: BuildConfig;
   favorites: FavoriteVehicle[];
@@ -103,10 +103,14 @@ export function BuildForm({
   disabled: boolean;
   onChange: (config: BuildConfig) => void;
   onNext: () => void;
+  /** Built-in catalog plus cars the vehicle library has added. */
+  catalog?: Record<string, Record<string, number[]>>;
+  /** Vehicle library card for the selected car. */
+  vehiclePanel?: ReactNode;
 }) {
-  const makes = Object.keys(CAR_DB).sort();
-  const models = Object.keys(CAR_DB[config.make] ?? {}).sort();
-  const years = [...(CAR_DB[config.make]?.[config.model] ?? [config.year])].sort((a, b) => b - a);
+  const makes = Object.keys(catalog).sort();
+  const models = Object.keys(catalog[config.make] ?? {}).sort();
+  const years = [...(catalog[config.make]?.[config.model] ?? [config.year])].sort((a, b) => b - a);
   const selectedVariant = getHondaFactoryVariant(config.make, config.model, config.year, config.trim);
   const bodyChoices = selectedVariant
     ? { options: [selectedVariant.bodyStyle], default: selectedVariant.bodyStyle }
@@ -135,8 +139,8 @@ export function BuildForm({
   const set = (patch: Partial<BuildConfig>) => onChange(normalizeAero({ ...config, ...patch }));
 
   const pickVehicle = (make: string, model?: string) => {
-    const nextModel = model ?? Object.keys(CAR_DB[make] ?? {}).sort()[0]!;
-    const nextYears = CAR_DB[make]?.[nextModel] ?? [config.year];
+    const nextModel = model ?? Object.keys(catalog[make] ?? {}).sort()[0]!;
+    const nextYears = catalog[make]?.[nextModel] ?? [config.year];
     const year = nextYears.includes(config.year) ? config.year : nextYears[nextYears.length - 1]!;
     onChange(withVehicle(config, make, nextModel, year));
   };
@@ -204,6 +208,8 @@ export function BuildForm({
             </Field>
           )}
         </div>
+
+        {vehiclePanel}
 
         <div className="grid">
           <Field label="Favorite group" id="favorite-group">
