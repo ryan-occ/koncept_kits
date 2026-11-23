@@ -15,8 +15,17 @@ const Name = z.string().trim().min(1).max(80);
 const CreateBody = z.object({ name: Name, config: BuildConfigSchema }).strict();
 const UpdateBody = z.object({ name: Name.optional(), config: BuildConfigSchema.optional() }).strict();
 const DRAWING_KEYS = [...DRAWING_VIEWS, ...PART_IDS.map(partKey)] as [DrawingKey, ...DrawingKey[]];
-const RedrawBody = z.object({ views: z.array(z.enum(DRAWING_KEYS)).min(1), notes: z.string().trim().min(1).max(1500) }).strict();
-const RenderBody = z.object({ angles: z.array(z.enum(RENDER_ANGLES)).min(1) }).strict();
+/**
+ * Rejects an oversized array before zod validates its items: zod 3 records an issue
+ * for every failing item, so a huge array of bad values could exhaust memory
+ * (GHSA-mrhx-c7xc-m3w5, fixed only in zod 4).
+ */
+const boundedArray = <T extends z.ZodTypeAny>(item: T, max: number) =>
+  z.unknown()
+    .refine(value => !Array.isArray(value) || value.length <= max, { message: `At most ${max} items.` })
+    .pipe(z.array(item).min(1).max(max));
+const RedrawBody = z.object({ views: boundedArray(z.enum(DRAWING_KEYS), DRAWING_KEYS.length), notes: z.string().trim().min(1).max(1500) }).strict();
+const RenderBody = z.object({ angles: boundedArray(z.enum(RENDER_ANGLES), RENDER_ANGLES.length) }).strict();
 /** Favourites may name any car in the catalog, including cars the vehicle library has added. */
 const favoriteVehicleBody = (catalog: VehicleCatalog) => z.object({
   make: z.string().trim().min(1).max(60),

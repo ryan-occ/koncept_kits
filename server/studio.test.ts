@@ -47,6 +47,14 @@ async function drawAndWait(app: express.Express, studio: Studio, id: number) {
 }
 
 describe("request body errors", () => {
+  it("rejects oversized arrays before validating each item", async () => {
+    const { app } = setup();
+    const build = await createBuild(app);
+    const res = await request(app).post(`/api/builds/${build.id}/renders`).send({ angles: Array.from({ length: 20_000 }, () => "x") });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("angles: At most 4 items.");
+  });
+
   it("accepts favourites backups larger than the default body limit", async () => {
     const { app } = setup();
     const favorite = { make: "Honda", model: "Civic", year: 2024, groupName: "Favorites" };
