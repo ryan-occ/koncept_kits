@@ -105,7 +105,7 @@ const BuildConfigBaseSchema = z.object({
 export const BuildConfigSchema = BuildConfigBaseSchema.superRefine((config, ctx) => {
   if (config.trim && !getHondaFactoryVariant(config.make, config.model, config.year, config.trim)) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: "custom",
       path: ["trim"],
       message: "This factory variant is not available for the selected vehicle and year.",
     });

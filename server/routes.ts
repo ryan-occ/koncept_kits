@@ -20,7 +20,7 @@ const DRAWING_KEYS = [...DRAWING_VIEWS, ...PART_IDS.map(partKey)] as [DrawingKey
  * for every failing item, so a huge array of bad values could exhaust memory
  * (GHSA-mrhx-c7xc-m3w5, fixed only in zod 4).
  */
-const boundedArray = <T extends z.ZodTypeAny>(item: T, max: number) =>
+const boundedArray = <T extends z.ZodType>(item: T, max: number) =>
   z.unknown()
     .refine(value => !Array.isArray(value) || value.length <= max, { message: `At most ${max} items.` })
     .pipe(z.array(item).min(1).max(max));
@@ -35,10 +35,10 @@ const favoriteVehicleBody = (catalog: VehicleCatalog) => z.object({
   groupName: z.string().trim().min(1).max(40).optional(),
 }).strict().superRefine((favorite, ctx) => {
   if (!catalog[favorite.make]?.[favorite.model]?.includes(favorite.year)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["year"], message: "Choose a model year from the vehicle catalog." });
+    ctx.addIssue({ code: "custom", path: ["year"], message: "Choose a model year from the vehicle catalog." });
   }
   if (favorite.trim && !getHondaFactoryVariant(favorite.make, favorite.model, favorite.year, favorite.trim)) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["trim"], message: "This factory variant is not available for the selected vehicle and year." });
+    ctx.addIssue({ code: "custom", path: ["trim"], message: "This factory variant is not available for the selected vehicle and year." });
   }
 });
 const FavoriteGroupBody = z.object({ name: z.string().trim().min(1).max(40) }).strict();
@@ -46,7 +46,7 @@ const FavoriteGroupName = z.string().trim().min(1).max(40);
 const FavoriteBackupMetadata = z.object({
   format: z.literal("vanguard-draft-favorites"),
   version: z.literal(1),
-  exportedAt: z.string().datetime(),
+  exportedAt: z.iso.datetime(),
 });
 
 const favoriteVehicle = (input: unknown, catalog: VehicleCatalog): FavoriteVehicle => favoriteVehicleBody(catalog).parse(input);
