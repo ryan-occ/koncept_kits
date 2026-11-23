@@ -205,7 +205,7 @@ describe("drawing-first workflow", () => {
     expect(calls[0]!.conditioning).toEqual([]);
     for (const call of calls.slice(1, 4)) {
       expect(call.conditioning?.map(c => [c.role, c.label])).toEqual([["reference", "approved side elevation"]]);
-      expect(call.quality).toBe("low");
+      expect(call.quality).toBe("high");
     }
     const body = (await request(app).get(`/api/builds/${build.id}`)).body as BuildDto;
     expect(body.drawingSet?.drawings).toHaveLength(4);
@@ -222,7 +222,7 @@ describe("drawing-first workflow", () => {
       "FRONT BUMPER & SPLITTER — CLOSE-UP", "VENTED HOOD — CLOSE-UP", "SIDE SKIRTS — CLOSE-UP",
     ]));
     for (const call of partCalls) {
-      expect(call.quality).toBe("low");
+      expect(call.quality).toBe("high");
       expect(call.prompt).toContain("ABSOLUTELY NO TEXT");
       expect(call.conditioning?.map(c => c.role)).toEqual(["reference"]);
     }

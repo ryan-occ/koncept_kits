@@ -31,7 +31,7 @@ export function DrawingsStep({ build, usage, onGenerate, onRedraw, onApprove, on
   const complete = !!set && DRAWING_VIEWS.every(v => set.drawings.some(d => d.view === v))
     && parts.every(p => set.parts.some(s => s.partId === p));
   const imageCount = DRAWING_VIEWS.length + parts.length;
-  const quality = usage?.drawingQuality ?? "low";
+  const quality = usage?.drawingQuality ?? "high";
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -50,7 +50,7 @@ export function DrawingsStep({ build, usage, onGenerate, onRedraw, onApprove, on
         <h2 id="drawings-heading">Technical drawings</h2>
         <p className="panel-intro">
           Four orthographic line drawings of the whole car — side, front, rear and top — then a close-up of each kit part ({parts.length}) on a measured sheet.
-          All are made at <strong>{quality}</strong> image quality, so the whole set costs a fraction of one render. The side view is drawn first and everything else is matched to it.
+          All are made at <strong>{quality}</strong> image quality{quality === "low" ? ", so the whole set costs a fraction of one render" : ""}. The side view is drawn first and everything else is matched to it.
           Review them, ask for changes, and approve before rendering.
         </p>
         <div className="actions">

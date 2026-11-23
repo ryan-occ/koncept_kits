@@ -3,7 +3,7 @@
 Single-user car body-kit studio. **Draw first, render once:**
 
 1. **Build** — pick car, kit style, parts (carbon or body colour), rear aero, paint, wheels. Autosaves.
-2. **Drawings** — 4 orthographic AI line drawings (side, front, rear, top) at *low* image quality.
+2. **Drawings** — 4 orthographic AI line drawings (side, front, rear, top) at *high* image quality (`DRAWING_QUALITY`).
    The side view is drawn first and the other three are matched to it. Tick views, write notes, redraw.
 3. **Approve** — locks the drawings to the exact build config. Changing the build afterwards marks
    them out of date and blocks renders/export until new drawings are approved.
@@ -55,7 +55,7 @@ The **Vehicle profile** card under the car picker keeps what the app learns abou
 | `DATABASE_URL` | — | Postgres; without it builds live in memory and vanish on restart |
 | `IMAGE_MODEL` | `gpt-image-2.5-sunburst` | Same model the Vanguard-Concept app uses |
 | `TEXT_MODEL` | `gpt-6-luna` | Estimates part dimensions when part drawings are made, and researches vehicle profiles |
-| `DRAWING_QUALITY` | `low` | `low` / `medium` / `high` — raise if drawings lose the car's identity |
+| `DRAWING_QUALITY` | `high` | `low` / `medium` / `high`; higher quality can cost more per image |
 | `RENDER_QUALITY` | `high` | Render image quality |
 | `DAILY_IMAGE_LIMIT` | `60` | Hard cap on images per UTC day |
 | `AI_MODE` | — | Set to `mock` to force placeholder images |

@@ -22,7 +22,7 @@ export const env = {
   // Same models the Vanguard-Concept app already uses on this OpenAI account.
   imageModel: process.env.IMAGE_MODEL?.trim() || "gpt-image-2.5-sunburst",
   textModel: process.env.TEXT_MODEL?.trim() || "gpt-6-luna",
-  drawingQuality: quality("DRAWING_QUALITY", "low"),
+  drawingQuality: quality("DRAWING_QUALITY", "high"),
   renderQuality: quality("RENDER_QUALITY", "high"),
   dailyImageLimit: positiveInt("DAILY_IMAGE_LIMIT", 60),
 };
