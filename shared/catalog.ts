@@ -18,7 +18,7 @@ export const CAR_DB: Record<string, Record<string, number[]>> = {
   Chevrolet: { "Corvette Z06": [2023,2024,2025], "Corvette E-Ray": [2024,2025], "Camaro ZL1": [2020,2021,2022,2023,2024], "Bel Air": [1955,1956,1957], "Corvette Sting Ray": [1963,1964,1965,1966,1967], "Camaro SS": [1967,1968,1969], "Chevelle SS": [1968,1969,1970,1971,1972], "Silverado": [2019,2020,2021,2022,2023,2024,2025], "Tahoe": [2021,2022,2023,2024,2025], "Suburban": [2021,2022,2023,2024,2025], "Equinox": [2018,2019,2020,2021,2022,2023,2024,2025], "Malibu": [2016,2017,2018,2019,2020,2021,2022,2023,2024], "Trailblazer": [2021,2022,2023,2024,2025], "Colorado": [2023,2024,2025] },
   Tesla: { "Model S Plaid": [2021,2022,2023,2024,2025], "Cybertruck": [2024,2025], "Model 3": [2017,2018,2019,2020,2021,2022,2023,2024,2025], "Model Y": [2020,2021,2022,2023,2024,2025] },
   "Aston Martin": { "Vantage": [2021,2022,2023,2024,2025], "DB12": [2024,2025], "DBX707": [2022,2023,2024,2025] },
-  Dodge: { "Challenger SRT Demon": [2021,2022,2023], "Charger Scat Pack": [2021,2022,2023,2024], "Charger R/T": [1968,1969,1970], "Challenger R/T": [1970,1971,1972,1973,1974] },
+  Dodge: { "Challenger SRT Demon": [2021,2022,2023], "Charger Scat Pack": [2021,2022,2023,2024], "Charger R/T": [1968,1969,1970], "Challenger R/T": [1970,1971,1972,1973,1974], "Challenger": yearsBetween(2008, 2023), "Charger": yearsBetween(2006, 2026), "Durango": yearsBetween(2011, 2026), "Hornet": [2023,2024,2025], "Viper": yearsBetween(2013, 2017) },
   Shelby: { "Cobra 289": [1962,1963,1964,1965], "GT500": [1967,1968,1969,1970] },
   Jaguar: { "E-Type": [1961,1962,1963,1964,1965,1966,1967,1968,1969,1970,1971,1972,1973,1974] },
   Pontiac: { "GTO": [1964,1965,1966,1967,1968,1969,1970,1971,1972,1973,1974], "Firebird Trans Am": [1969,1970,1971,1972,1973] },
@@ -523,6 +523,11 @@ const MODEL_CATEGORY_MAP: Record<string, VehicleCategory> = {
   "DBX707": "suv",
   "Challenger SRT Demon": "muscle",
   "Charger Scat Pack": "muscle",
+  "Challenger": "muscle",
+  "Charger": "muscle",
+  "Viper": "sports-coupe",
+  "Durango": "suv",
+  "Hornet": "crossover",
   // Classic cars
   "Model B (Deuce Coupe)": "classic",
   "Bel Air": "classic",
@@ -983,6 +988,8 @@ export const BODY_STYLE_LABELS: Record<BodyStyle, string> = {
 
 const MODEL_BODY_STYLE_OPTIONS: Record<string, { options: BodyStyle[]; default: BodyStyle }> = {
   "Honda:Civic": { options: ["sedan", "hatchback"], default: "sedan" },
+  // Four-door through 2023; the 2024+ generation adds a two-door.
+  "Dodge:Charger": { options: ["sedan", "coupe"], default: "sedan" },
   "BMW:8 Series": { options: ["coupe", "convertible"], default: "coupe" },
   "BMW:M8": { options: ["coupe", "convertible"], default: "coupe" },
   "Ford:Mustang Dark Horse": { options: ["coupe", "convertible"], default: "coupe" },
@@ -1026,6 +1033,7 @@ const CURATED_MODEL_BODY_STYLE: Record<string, BodyStyle> = {
   "Bugatti:EB110": "coupe", "Mazda:RX-7 FD": "coupe", "McLaren:F1": "coupe",
   "Toyota:Supra MK4 (A80)": "coupe", "Nissan:Skyline GT-R R34": "coupe",
   "Ford:Mustang GT500": "coupe",
+  "Dodge:Challenger": "coupe", "Dodge:Viper": "coupe", "Dodge:Durango": "suv", "Dodge:Hornet": "suv",
   "Toyota:GR Yaris": "hatchback", "Audi:RS3": "hatchback",
   "Audi:RS6 Avant": "wagon",
   "BMW:X5 M": "suv", "BMW:X6 M": "suv", "Mercedes-Benz:G-Class": "suv",

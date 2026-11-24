@@ -596,6 +596,12 @@ const KNOWN_MODEL_BODY_STYLES: Record<string, BodyStyle> = {
   // Chevrolet trucks / SUVs
   "Chevrolet:Silverado": "truck",
   "Chevrolet:Tahoe": "suv",
+  // Dodge modern lineup
+  "Dodge:Charger": "sedan",
+  "Dodge:Challenger": "coupe",
+  "Dodge:Viper": "coupe",
+  "Dodge:Durango": "suv",
+  "Dodge:Hornet": "suv",
   // Toyota dailies / trucks
   "Toyota:Camry": "sedan",
   "Toyota:Corolla": "sedan",
@@ -684,6 +690,7 @@ export function validateBodyStyle(s: unknown): BodyStyle | undefined {
 // canonical style.
 const MODEL_VALID_BODY_STYLES: Record<string, ReadonlyArray<BodyStyle>> = {
   "Honda:Civic": ["sedan", "hatchback"],
+  "Dodge:Charger": ["sedan", "coupe"],
   "Honda:Civic Type R (EP3)": ["hatchback"],
   "Honda:Civic Type R (FD2)": ["sedan"],
   "Honda:Civic Type R (FK2)": ["hatchback"],

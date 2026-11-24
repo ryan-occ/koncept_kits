@@ -139,7 +139,11 @@ export function BuildForm({
   const set = (patch: Partial<BuildConfig>) => onChange(normalizeAero({ ...config, ...patch }));
 
   const pickVehicle = (make: string, model?: string) => {
-    const nextModel = model ?? Object.keys(catalog[make] ?? {}).sort()[0]!;
+    // A new make opens on its newest model, not the first alphabetically
+    // (for Dodge that was a 1970s classic).
+    const newest = (years: number[]) => Math.max(...years);
+    const nextModel = model ?? Object.entries(catalog[make] ?? {})
+      .sort(([a, ay], [b, by]) => newest(by) - newest(ay) || a.localeCompare(b))[0]![0];
     const nextYears = catalog[make]?.[nextModel] ?? [config.year];
     const year = nextYears.includes(config.year) ? config.year : nextYears[nextYears.length - 1]!;
     onChange(withVehicle(config, make, nextModel, year));
