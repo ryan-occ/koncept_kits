@@ -70,17 +70,42 @@ describe("BuildForm vehicle search", () => {
     renderForm(defaultConfig(), onChange);
 
     const makeInput = typeIn("make", "hond");
-    expect(makeInput.getAttribute("list")).toBe("make-options");
-    expect(container.querySelector("#make-options option[value='Honda']")).not.toBeNull();
-    expect(container.querySelector("#make-options option[value='BMW']")).toBeNull();
+    expect(makeInput.getAttribute("aria-controls")).toBe("make-options");
+    expect(container.querySelector("#make-options [role='option']")?.textContent).toBe("Honda");
+    expect(Array.from(container.querySelectorAll("#make-options [role='option']")).some(option => option.textContent === "BMW")).toBe(false);
     expect(onChange).not.toHaveBeenCalled();
 
     renderForm(withVehicle(defaultConfig(), "Honda", "Accord", 2025), onChange);
     const modelInput = typeIn("model", "civ");
-    expect(modelInput.getAttribute("list")).toBe("model-options");
-    expect(container.querySelector("#model-options option[value='Civic']")).not.toBeNull();
-    expect(container.querySelector("#model-options option[value='Accord']")).toBeNull();
+    expect(modelInput.getAttribute("aria-controls")).toBe("model-options");
+    expect(container.querySelector("#model-options [role='option']")?.textContent).toBe("Civic");
+    expect(Array.from(container.querySelectorAll("#model-options [role='option']")).some(option => option.textContent === "Accord")).toBe(false);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("opens Make and Model options on focus and selects clicked entries", () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    let config = defaultConfig();
+    const onChange = (next: BuildConfig) => { config = next; };
+    renderForm(config, onChange);
+
+    const make = container.querySelector<HTMLInputElement>("#make")!;
+    act(() => make.focus());
+    expect(make.getAttribute("aria-expanded")).toBe("true");
+    const honda = Array.from(container.querySelectorAll("#make-options [role='option']"))
+      .find(option => option.textContent === "Honda")!;
+    act(() => honda.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(config.make).toBe("Honda");
+
+    renderForm(config, onChange);
+    const model = container.querySelector<HTMLInputElement>("#model")!;
+    act(() => model.focus());
+    const civic = Array.from(container.querySelectorAll("#model-options [role='option']"))
+      .find(option => option.textContent === "Civic")!;
+    act(() => civic.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(config).toMatchObject({ make: "Honda", model: "Civic" });
   });
 
   it("selects exact make and model matches without breaking year choices", () => {
@@ -241,10 +266,10 @@ describe("BuildForm vehicle search", () => {
     renderForm(config, onChange);
 
     const modelInput = typeIn("model", "CRV");
-    expect(container.querySelector("#model-options option[value='CR-V']")).not.toBeNull();
-    expect(container.querySelector("#model-options option[value='CRV']")).toBeNull();
+    expect(modelInput.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector("#model-options")).toBeNull();
     expect(config.make).toBe("Honda");
     expect(config.model).toBe("CR-V");
-    expect(modelInput.value).toBe("CRV");
+    expect(modelInput.value).toBe("CR-V");
   });
 });

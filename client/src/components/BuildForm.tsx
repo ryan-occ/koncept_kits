@@ -37,53 +37,102 @@ function SearchableSelector({ id, value, options, placeholder, aliases, onSelect
   onSelect: (value: string) => void;
 }) {
   const [query, setQuery] = useState(value);
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const filteredOptions = filterOptions(options, query === value ? "" : query, aliases);
 
   useEffect(() => setQuery(value), [value]);
+  useEffect(() => setActiveIndex(Math.max(0, filteredOptions.indexOf(value))), [value, options]);
 
   const updateQuery = (nextQuery: string) => {
     setQuery(nextQuery);
+    setIsOpen(true);
     const normalizedQuery = normalizeSearch(nextQuery.trim());
     const exactMatches = options.filter(option => (
       normalizeSearch(option) === normalizedQuery
       || (aliases?.[option] ?? []).some(alias => normalizeSearch(alias) === normalizedQuery)
     ));
-    if (exactMatches.length === 1) onSelect(exactMatches[0]!);
+    if (exactMatches.length === 1) {
+      const exactMatch = exactMatches[0]!;
+      setQuery(exactMatch);
+      setActiveIndex(Math.max(0, options.indexOf(exactMatch)));
+      setIsOpen(false);
+      onSelect(exactMatch);
+    } else {
+      setActiveIndex(0);
+    }
+  };
+
+  const selectOption = (option: string) => {
+    setQuery(option);
+    setIsOpen(false);
+    setActiveIndex(Math.max(0, options.indexOf(option)));
+    onSelect(option);
+  };
+
+  const openOptions = () => {
+    setActiveIndex(Math.max(0, filteredOptions.indexOf(value)));
+    setIsOpen(true);
   };
 
   return (
-    <>
+    <div className="searchable-selector">
       <input
         id={id}
         type="text"
         role="combobox"
         aria-autocomplete="list"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen && filteredOptions.length > 0}
+        aria-controls={`${id}-options`}
+        aria-activedescendant={isOpen && filteredOptions.length ? `${id}-option-${activeIndex}` : undefined}
         autoComplete="off"
-        list={`${id}-options`}
         value={query}
         placeholder={placeholder}
+        onFocus={openOptions}
         onChange={event => updateQuery(event.target.value)}
         onKeyDown={event => {
-          if (event.key !== "Enter") return;
-          const matches = filterOptions(options, event.currentTarget.value, aliases);
-          const alreadySelected = options.some(option => (
-            normalizeSearch(option) === normalizeSearch(event.currentTarget.value.trim())
-            || (aliases?.[option] ?? []).some(alias =>
-              normalizeSearch(alias) === normalizeSearch(event.currentTarget.value.trim()),
-            )
-          ));
-          if (!alreadySelected && matches.length === 1) {
+          if (event.key === "ArrowDown") {
             event.preventDefault();
-            updateQuery(matches[0]!);
+            if (!isOpen) openOptions();
+            else if (filteredOptions.length) setActiveIndex(index => Math.min(index + 1, filteredOptions.length - 1));
+          } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            if (!isOpen) openOptions();
+            else if (filteredOptions.length) setActiveIndex(index => Math.max(index - 1, 0));
+          } else if (event.key === "Enter" && isOpen && filteredOptions.length > 0) {
+            event.preventDefault();
+            selectOption(filteredOptions[activeIndex] ?? filteredOptions[0]!);
+          } else if (event.key === "Escape") {
+            setIsOpen(false);
+            setQuery(value);
           }
         }}
-        onBlur={() => setQuery(value)}
+        onBlur={() => {
+          setIsOpen(false);
+          setQuery(value);
+        }}
       />
-      <datalist id={`${id}-options`}>
-        {filteredOptions.map(option => <option key={option} value={option} />)}
-      </datalist>
-      {query !== value && filteredOptions.length === 0 && <span className="hint" role="status">No matches. Try another search.</span>}
-    </>
+      {isOpen && filteredOptions.length > 0 && (
+        <div id={`${id}-options`} className="searchable-options" role="listbox" aria-label={`${id} options`}>
+          {filteredOptions.map((option, index) => (
+            <div
+              id={`${id}-option-${index}`}
+              key={option}
+              className="searchable-option"
+              role="option"
+              aria-selected={option === value}
+              data-active={index === activeIndex}
+              onMouseDown={event => event.preventDefault()}
+              onClick={() => selectOption(option)}
+            >
+              {option}
+            </div>
+          ))}
+        </div>
+      )}
+      {isOpen && query !== value && filteredOptions.length === 0 && <span className="hint" role="status">No matches. Try another search.</span>}
+    </div>
   );
 }
 
