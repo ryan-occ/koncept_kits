@@ -17,7 +17,10 @@ export function Sidebar({ builds, selectedId, usage, onSelect, onNew }: {
   return (
     <aside className="sidebar" aria-label="Saved builds">
       <div className="sidebar-head">
-        <div className="brand">VANGUARD <span>DRAFT</span></div>
+        <div className="brand">
+          <img className="brand-mark" src="/vanguard-mark.png" alt="Vanguard Draft mark" />
+          <span>VANGUARD<br />DRAFT</span>
+        </div>
         <button className="btn primary" onClick={onNew}>+ New build</button>
       </div>
       <ul className="build-list">

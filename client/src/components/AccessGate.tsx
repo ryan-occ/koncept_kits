@@ -50,7 +50,10 @@ export function AccessGate({ children }: { children: ReactNode }) {
   return (
     <main className="access-screen">
       <section className="access-card" aria-labelledby="access-heading">
-        <div className="brand">VANGUARD <span>DRAFT</span></div>
+        <div className="brand">
+          <img className="brand-mark" src="/vanguard-mark.png" alt="Vanguard Draft mark" />
+          <span>VANGUARD<br />DRAFT</span>
+        </div>
         {state === "checking" ? (
           <p className="access-message" role="status">Checking access…</p>
         ) : state === "error" ? (
