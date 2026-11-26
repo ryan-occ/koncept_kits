@@ -101,6 +101,7 @@ async function specSheetPdf(input: ExportInput): Promise<Buffer> {
     ["Vehicle", `${vehicleName(c)} (${c.bodyStyle}, ${c.category})`],
     ["Kit", `${c.kitStyleLabel}${c.wideBody ? " — wide-body" : ""}`],
     ["Paint", `${c.paint.name} ${c.paint.hex}${c.paint.hex2 ? ` → ${c.paint.hex2}` : ""}`],
+    ...(c.paint.finish ? [["Paint finish", c.paint.finish] as [string, string]] : []),
     ["Wheels", `${c.rim.size} ${c.rim.styleName}, ${c.rim.colorName}`],
     ["Carbon", cf ? `${cf.name} (${cf.w})` : c.carbonMaterialId],
     ["Rear aero", c.parts.wing.included ? `${c.rearAero}${c.wingMounting ? ` / ${c.wingMounting}` : ""}` : "none"],

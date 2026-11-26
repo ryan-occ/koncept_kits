@@ -5,7 +5,16 @@ import {
   VEHICLE_MAKE_ALIASES, VEHICLE_MODEL_ALIASES,
 } from "../../../shared/catalog";
 import { aeroOptions, normalizeAero, withVehicle } from "../../../shared/defaults";
-import { favoriteVehicleKey, PART_IDS, PART_LABELS, type BuildConfig, type FavoriteVehicle } from "../../../shared/types";
+import { favoriteVehicleKey, PART_IDS, PART_LABELS, type BuildConfig, type FavoriteVehicle, type LibraryPaintDto, type PaintLibraryDto } from "../../../shared/types";
+import { api } from "../api";
+
+const paintFromLibrary = (p: LibraryPaintDto): BuildConfig["paint"] => ({
+  name: p.name,
+  hex: p.hex,
+  ...(p.hex2 ? { hex2: p.hex2 } : {}),
+  ...(p.hex2 && p.shiftLabel ? { shiftLabel: p.shiftLabel } : {}),
+  ...(p.finish.trim() ? { finish: p.finish.trim() } : {}),
+});
 
 function Field({ label, children, id }: { label: string; children: ReactNode; id?: string }) {
   return (
@@ -186,6 +195,23 @@ export function BuildForm({
   const aero = aeroOptions(config);
   const rim = RIM_STYLES.find(r => r.id === config.rim.styleId) ?? RIM_STYLES[0]!;
   const set = (patch: Partial<BuildConfig>) => onChange(normalizeAero({ ...config, ...patch }));
+  const [paintLibrary, setPaintLibrary] = useState<PaintLibraryDto | null>(null);
+  const [paintLibraryLoading, setPaintLibraryLoading] = useState(false);
+  const loadPaintLibrary = async (refresh = false) => {
+    setPaintLibraryLoading(true);
+    try {
+      setPaintLibrary(await api.paintLibrary(refresh));
+    } catch (error) {
+      setPaintLibrary({ status: "unavailable", paints: [], message: error instanceof Error ? error.message : "Could not load the paint library." });
+    } finally {
+      setPaintLibraryLoading(false);
+    }
+  };
+  useEffect(() => { void loadPaintLibrary(); }, []);
+  const libraryPaints = paintLibrary?.paints ?? [];
+  const isLibraryPaint = (p: LibraryPaintDto) =>
+    config.paint.name === p.name && config.paint.hex === p.hex && (config.paint.finish ?? "") === p.finish.trim();
+  const selectedLibraryPaint = libraryPaints.find(isLibraryPaint);
 
   const pickVehicle = (make: string, model?: string) => {
     // A new make opens on its newest model, not the first alphabetically
@@ -489,7 +515,7 @@ export function BuildForm({
             {PAINTS.map(p => (
               <button
                 key={p.name} type="button" className="chip"
-                aria-pressed={config.paint.name === p.name}
+                aria-pressed={config.paint.name === p.name && !config.paint.finish && !selectedLibraryPaint}
                 onClick={() => set({ paint: { name: p.name, hex: p.hex, ...(p.hex2 ? { hex2: p.hex2 } : {}), ...(p.shiftLabel ? { shiftLabel: p.shiftLabel } : {}) } })}
               >
                 <span className="swatch" style={{ background: p.hex2 ? `linear-gradient(135deg, ${p.hex}, ${p.hex2})` : p.hex }} />
@@ -497,6 +523,45 @@ export function BuildForm({
               </button>
             ))}
           </div>
+        </Field>
+
+        <Field label="Koncept Paint library">
+          {libraryPaints.length > 0 && (
+            <div className="chips">
+              {libraryPaints.map(p => (
+                <button
+                  key={p.id} type="button" className="chip" title={p.finish || undefined}
+                  aria-pressed={isLibraryPaint(p)}
+                  onClick={() => set({ paint: paintFromLibrary(p) })}
+                >
+                  <span className="swatch" style={{ background: p.hex2 ? `linear-gradient(135deg, ${p.hex}, ${p.hex2})` : p.hex }} />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {paintLibrary === null && <p className="hint" role="status">Loading the Koncept Paint library…</p>}
+          {paintLibrary?.status === "ok" && libraryPaints.length === 0 && (
+            <p className="hint" role="status">No paints in the library yet. Add them in Koncept Paint, then refresh.</p>
+          )}
+          {paintLibrary && paintLibrary.status !== "ok" && (
+            <p className="hint" role="status">
+              {paintLibrary.message}{paintLibrary.status === "unavailable" && libraryPaints.length > 0 ? " Showing the last list." : ""}
+            </p>
+          )}
+          {config.paint.finish && (
+            <p className="hint" style={{ marginTop: 6 }}>
+              {config.paint.name} — {config.paint.finish}
+              {paintLibrary?.status === "ok" && !selectedLibraryPaint ? ". It is no longer in the library or has changed there; this build keeps the paint it has." : ""}
+            </p>
+          )}
+          {paintLibrary?.status !== "not-configured" && (
+            <div className="actions" style={{ marginTop: 6 }}>
+              <button type="button" className="btn" disabled={paintLibraryLoading} onClick={() => void loadPaintLibrary(true)}>
+                {paintLibraryLoading ? "Refreshing…" : "Refresh library"}
+              </button>
+            </div>
+          )}
         </Field>
 
         <div className="grid">

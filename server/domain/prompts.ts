@@ -307,9 +307,16 @@ export function renderPrompt(config: BuildConfig, angle: RenderAngle): string {
       `\nVEHICLE: ${vehicleName(config)}.${variant ? ` ${variant}` : ""}`,
     base,
     ...(carbon ? [carbon] : []),
+    ...(config.paint.finish ? [paintFinishBlock(config)] : []),
     // Repeated last: the ported brief above can describe a wide-body stance, and the final instruction should win.
     ...(arches ? [`FINAL CHECK — ${arches}`] : []),
   ].join("\n\n");
+}
+
+/** Custom paints from the Koncept Paint library carry a finish the paint name alone doesn't say. */
+export function paintFinishBlock(config: BuildConfig): string {
+  return `PAINT FINISH — ${config.paint.name}: ${config.paint.finish}. ` +
+    `Reproduce this finish on every painted surface: the clear-coat sheen, any metallic flake, pearl or effect pigment, and candy depth.`;
 }
 
 export function carbonMaterial(config: BuildConfig): CfMaterial {

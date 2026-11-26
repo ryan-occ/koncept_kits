@@ -1,6 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import { AiError } from "./ai";
+import type { PaintLibrary } from "./paint-library";
 import { Studio, StudioError } from "./studio";
 import type { VehicleLibrary } from "./vehicles/library";
 import { vehiclesRouter } from "./vehicles/routes";
@@ -172,7 +173,7 @@ function sendImage(res: Response, image: { data: Buffer; mime: string }) {
   res.send(image.data);
 }
 
-export function apiRouter(studio: Studio, library?: VehicleLibrary) {
+export function apiRouter(studio: Studio, library?: VehicleLibrary, paintLibrary?: PaintLibrary) {
   const router = express.Router();
   const catalog = async (): Promise<VehicleCatalog> => (library ? (await library.catalog()).catalog : CAR_DB);
   // A full favourites backup (up to 10,000 vehicles) is around 1-2 MB; every other body is small.
@@ -181,6 +182,12 @@ export function apiRouter(studio: Studio, library?: VehicleLibrary) {
 
   router.get("/healthz", (_req, res) => { res.json({ ok: true }); });
   router.get("/usage", wrap(async (_req, res) => res.json(await studio.usage())));
+  router.get("/paint-library", wrap(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(paintLibrary
+      ? await paintLibrary.list({ refresh: req.query.refresh === "1" })
+      : { status: "not-configured", paints: [] });
+  }));
   router.get("/favorite-groups", wrap(async (_req, res) => res.json(await studio.store.listFavoriteGroups())));
   router.post("/favorite-groups", wrap(async (req, res) =>
     res.status(201).json(await studio.store.createFavoriteGroup(FavoriteGroupBody.parse(req.body).name)),

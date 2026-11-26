@@ -59,6 +59,16 @@ The **Vehicle profile** card under the car picker keeps what the app learns abou
 | `RENDER_QUALITY` | `high` | Render image quality |
 | `DAILY_IMAGE_LIMIT` | `60` | Hard cap on images per UTC day |
 | `AI_MODE` | — | Set to `mock` to force placeholder images |
+| `PAINT_LIBRARY_URL` | — | Koncept Paint's published address (`https://…`), for its paint library |
+| `PAINT_LIBRARY_KEY` | — | Same value as Koncept Paint's `PAINT_LIBRARY_KEY` (32+ characters) |
+
+## Koncept Paint library
+
+The **Koncept Paint library** group under **Paint** lists the paints saved in the Koncept Paint app.
+Picking one copies its name, colour (and second colour for colour-shift paints) and finish
+description into the build, so renders don't depend on Koncept Paint being awake, and changing or
+removing the paint there doesn't change existing builds. The finish is added to render prompts
+and the spec sheet. The list is cached for a minute; **Refresh library** asks again.
 
 ## Layout
 

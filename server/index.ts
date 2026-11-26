@@ -6,6 +6,7 @@ import { createAiProvider } from "./ai";
 import { env } from "./env";
 import { apiRouter } from "./routes";
 import { createStore } from "./store";
+import { PaintLibrary } from "./paint-library";
 import { VehicleLibrary } from "./vehicles/library";
 import { createVehicleStore } from "./vehicles/store";
 import { Studio } from "./studio";
@@ -32,7 +33,8 @@ async function main() {
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
   app.use("/api", accessGate.router);
-  app.use("/api", apiRouter(studio, vehicles));
+  const paints = new PaintLibrary({ url: env.paintLibraryUrl, key: env.paintLibraryKey });
+  app.use("/api", apiRouter(studio, vehicles, paints));
 
   const here = path.dirname(fileURLToPath(import.meta.url));
   if (env.production) {

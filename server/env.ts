@@ -25,4 +25,7 @@ export const env = {
   drawingQuality: quality("DRAWING_QUALITY", "high"),
   renderQuality: quality("RENDER_QUALITY", "high"),
   dailyImageLimit: positiveInt("DAILY_IMAGE_LIMIT", 60),
+  /** Koncept Paint's published address and shared key, for its paint library. */
+  paintLibraryUrl: process.env.PAINT_LIBRARY_URL?.trim() || null,
+  paintLibraryKey: process.env.PAINT_LIBRARY_KEY?.trim() || null,
 };

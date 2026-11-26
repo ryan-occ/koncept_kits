@@ -1,6 +1,6 @@
 import type {
   BuildConfig, BuildDto, BuildSummaryDto, DrawingKey, FavoriteVehicle, FavoriteVehicleBackup,
-  FavoriteVehicleImportResult, RenderAngle, UsageDto,
+  FavoriteVehicleImportResult, PaintLibraryDto, RenderAngle, UsageDto,
 } from "../../shared/types";
 import type { VehicleCatalogDto, VehiclePhotoView, VehicleProfileDto, VehicleProfileEdit, VehicleRef } from "../../shared/vehicles";
 
@@ -36,6 +36,7 @@ export const api = {
   accessStatus: () => request<AccessStatus>("GET", "/api/auth/status"),
   login: (code: string) => request<AccessStatus>("POST", "/api/auth/login", { code }),
   usage: () => request<UsageDto>("GET", "/api/usage"),
+  paintLibrary: (refresh = false) => request<PaintLibraryDto>("GET", `/api/paint-library${refresh ? "?refresh=1" : ""}`),
   listBuilds: () => request<BuildSummaryDto[]>("GET", "/api/builds"),
   listFavoriteGroups: () => request<string[]>("GET", "/api/favorite-groups"),
   createFavoriteGroup: (name: string) => request<string>("POST", "/api/favorite-groups", { name }),

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultConfig, withVehicle } from "../../../shared/defaults";
 import { favoriteVehicleKey, type BuildConfig, type FavoriteVehicle } from "../../../shared/types";
 import { BuildForm } from "./BuildForm";
+import { api } from "../api";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -271,5 +272,45 @@ describe("BuildForm vehicle search", () => {
     expect(config.make).toBe("Honda");
     expect(config.model).toBe("CR-V");
     expect(modelInput.value).toBe("CR-V");
+  });
+
+  it("offers Koncept Paint library paints and copies the chosen one into the build", async () => {
+    const spy = vi.spyOn(api, "paintLibrary").mockResolvedValue({
+      status: "ok",
+      paints: [{
+        id: 7, name: "Oil-slick petrol", hex: "#11100f", hex2: "#347787", shiftLabel: "ghost blue / ghost green",
+        finish: "gloss clear, fine metallic flake (18%)", updatedAt: "2026-11-26T10:00:00.000Z",
+      }],
+    });
+    container = document.createElement("div");
+    root = createRoot(container);
+    let config = defaultConfig();
+    const onChange = (next: BuildConfig) => { config = next; };
+    renderForm(config, onChange);
+    await act(async () => {});
+
+    const chip = Array.from(container.querySelectorAll<HTMLButtonElement>("button.chip")).find(b => b.textContent === "Oil-slick petrol")!;
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
+    act(() => chip.click());
+    expect(config.paint).toEqual({
+      name: "Oil-slick petrol", hex: "#11100f", hex2: "#347787", shiftLabel: "ghost blue / ghost green",
+      finish: "gloss clear, fine metallic flake (18%)",
+    });
+
+    renderForm(config, onChange);
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    expect(container.textContent).toContain("Oil-slick petrol — gloss clear, fine metallic flake (18%)");
+    spy.mockRestore();
+  });
+
+  it("says when the paint library is not connected", async () => {
+    const spy = vi.spyOn(api, "paintLibrary").mockResolvedValue({ status: "not-configured", paints: [], message: "Add PAINT_LIBRARY_URL and PAINT_LIBRARY_KEY in Replit Secrets to use Koncept Paint's library." });
+    container = document.createElement("div");
+    root = createRoot(container);
+    renderForm(defaultConfig(), () => {});
+    await act(async () => {});
+    expect(container.textContent).toContain("Add PAINT_LIBRARY_URL and PAINT_LIBRARY_KEY");
+    expect(container.textContent).not.toContain("Refresh library");
+    spy.mockRestore();
   });
 });

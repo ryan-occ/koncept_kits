@@ -89,6 +89,8 @@ const BuildConfigBaseSchema = z.object({
     hex,
     hex2: hex.optional(),
     shiftLabel: z.string().max(40).optional(),
+    /** Finish from the Koncept Paint library, e.g. "gloss clear, fine metallic flake (85%)". */
+    finish: z.string().trim().min(1).max(300).optional(),
   }).strict(),
   rim: z.object({
     styleId: z.string().min(1).max(40),
@@ -216,6 +218,24 @@ export interface UsageDto {
   drawingQuality: string;
   renderQuality: string;
   storage: "postgres" | "memory";
+}
+
+/** A paint shared by the Koncept Paint app's library. */
+export interface LibraryPaintDto {
+  id: number;
+  name: string;
+  hex: string;
+  hex2?: string;
+  shiftLabel?: string;
+  finish: string;
+  updatedAt: string;
+}
+
+export interface PaintLibraryDto {
+  /** "not-configured": no PAINT_LIBRARY_URL/KEY; "unavailable": Koncept Paint could not be read (paints may be the last list). */
+  status: "ok" | "not-configured" | "unavailable";
+  paints: LibraryPaintDto[];
+  message?: string;
 }
 
 export interface ApiError {
