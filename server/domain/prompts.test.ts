@@ -119,3 +119,36 @@ describe("curated Honda drawing cues", () => {
     expect(prompt).toContain("2019–2022 four-door sedan");
   });
 });
+
+describe("carbon material in renders", () => {
+  const withCarbon = (carbonMaterialId: string, kitStyleId?: string) => {
+    const base = config(kitStyleId ? { kitStyleId } : {});
+    const parts = Object.fromEntries(Object.entries(base.parts).map(([id, p]) => [id, { ...p, included: true, finish: "carbon" as const }]));
+    return { ...base, carbonMaterialId, parts } as BuildConfig;
+  };
+
+  it("renders forged carbon as random marbling, never as a weave", () => {
+    for (const kit of ["vanguard-custom", "gt4-street"]) {
+      for (const angle of ["front-three-quarter", "side-profile", "rear-three-quarter", "front-elevation"] as const) {
+        const prompt = renderPrompt(withCarbon("forged", kit), angle);
+        expect(prompt).toContain("CARBON MATERIAL — FORGED CARBON");
+        expect(prompt).toContain("MARBLED mosaic");
+        expect(prompt).not.toMatch(/diamond-weave|rhombic|X-lattice/);
+        expect(prompt).not.toMatch(/carbon(?:[- ]fib(?:er|re))? weave/i);
+      }
+    }
+  });
+
+  it("gives each woven material its own recognisable pattern", () => {
+    expect(renderPrompt(withCarbon("3kPlain", "gt4-street"), "side-profile")).toContain("CHECKERBOARD");
+    expect(renderPrompt(withCarbon("2x2Twill"), "side-profile")).toContain("DIAGONAL stepped stripes");
+    expect(renderPrompt(withCarbon("kevlarHybrid"), "side-profile")).toContain("GOLDEN-YELLOW aramid");
+    expect(renderPrompt(withCarbon("3kPlain", "vanguard-custom"), "side-profile")).not.toContain("diamond-weave");
+  });
+
+  it("leaves the material out when no included part is exposed carbon", () => {
+    const c = withCarbon("forged");
+    const painted = { ...c, parts: Object.fromEntries(Object.entries(c.parts).map(([id, p]) => [id, { ...p, finish: "body" as const }])) } as BuildConfig;
+    expect(renderPrompt(painted, "side-profile")).not.toContain("CARBON MATERIAL —");
+  });
+});

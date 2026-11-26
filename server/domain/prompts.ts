@@ -17,6 +17,7 @@ import {
   buildVanguardConceptPrompt,
   getCuratedSignatureCuesForModel,
   getRearAeroSpec,
+  VANGUARD_DIAMOND_WEAVE_DEF,
   type AngleKey,
   type BodyStyle,
   type KitPartFinishes,
@@ -32,7 +33,7 @@ import {
   type RenderAngle,
 } from "../../shared/types";
 
-import { getHondaFactoryVariant } from "../../shared/catalog";
+import { CF_MATERIALS, getHondaFactoryVariant, type CfMaterial } from "../../shared/catalog";
 
 export function vehicleName(config: BuildConfig): string {
   const variant = getHondaFactoryVariant(config.make, config.model, config.year, config.trim);
@@ -292,7 +293,9 @@ export function renderPrompt(config: BuildConfig, angle: RenderAngle): string {
         kitDescription(config), legacyAngle, config.bodyStyle as BodyStyle, config.paint.hex2, config.paint.shiftLabel,
         config.rim.colorName, config.rim.colorHex, false, finishes, undefined, config.category, config.kitStyleId,
       );
-  const base = config.wideBody ? brief : stripWideBody(brief);
+  const cf = carbonMaterial(config);
+  const base = applyCarbonMaterial(config.wideBody ? brief : stripWideBody(brief), cf);
+  const carbon = carbonMaterialBlock(config, cf);
   const arches = archSentence(config);
   // The ported brief only knows make and model, so name the exact car (trim included) here.
   const variant = factoryVariantCue(config);
@@ -303,9 +306,43 @@ export function renderPrompt(config: BuildConfig, angle: RenderAngle): string {
       (arches ? ` ${arches}` : "") +
       `\nVEHICLE: ${vehicleName(config)}.${variant ? ` ${variant}` : ""}`,
     base,
+    ...(carbon ? [carbon] : []),
     // Repeated last: the ported brief above can describe a wide-body stance, and the final instruction should win.
     ...(arches ? [`FINAL CHECK — ${arches}`] : []),
   ].join("\n\n");
+}
+
+export function carbonMaterial(config: BuildConfig): CfMaterial {
+  return CF_MATERIALS.find(m => m.id === config.carbonMaterialId) ?? CF_MATERIALS[0]!;
+}
+
+/**
+ * The ported brief describes every carbon part as one fixed "Vanguard diamond-weave",
+ * whatever material was chosen. Swap in the chosen material, and for forged carbon,
+ * which has no weave, drop the weave wording too.
+ */
+export function applyCarbonMaterial(text: string, cf: CfMaterial): string {
+  let out = text
+    .split(VANGUARD_DIAMOND_WEAVE_DEF).join(`${cf.name} (${cf.render})`)
+    .replace(/\(see Vanguard diamond-weave spec\)/g, "(see the CARBON MATERIAL spec)")
+    .replace(/diamond-weave pattern/g, `${cf.name.toLowerCase()} pattern`);
+  if (cf.pattern === "random") {
+    out = out
+      .replace(/exact weave geometry on the carbon/g, "the random forged flake pattern on the carbon")
+      .replace(/(?:visible )?weave pattern under gloss/g, "random forged marbling under gloss")
+      .replace(/the weave pattern/g, "the forged marbling")
+      .replace(/carbon(?:[- ]fib(?:er|re))? weave(?: pattern| texture)?/gi, "forged carbon marbling");
+  }
+  return out;
+}
+
+/** Stated on its own so the material is unmistakable; empty when no included part is exposed carbon. */
+export function carbonMaterialBlock(config: BuildConfig, cf = carbonMaterial(config)): string | null {
+  const parts = includedParts(config).filter(id => config.parts[id].finish === "carbon");
+  if (parts.length === 0) return null;
+  const list = parts.map(id => PART_LABELS[id].toLowerCase()).join(", ");
+  return `CARBON MATERIAL — ${cf.name.toUpperCase()}: every exposed-carbon part (${list}) is ${cf.render}. ` +
+    `Use this one material on all of them, and do not substitute any other carbon pattern.`;
 }
 
 export function renderConditioning(angle: RenderAngle, drawings: Partial<Record<DrawingView, Img>>): ConditioningImage[] {

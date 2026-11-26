@@ -1692,14 +1692,38 @@ export function hasUsablePartSpecDimensions(
     Number.isFinite(weight) && Number(weight) >= 0;
 }
 
-export interface CfMaterial { id: string; name: string; w: string; finish: string; look: string }
+export interface CfMaterial {
+  id: string; name: string; w: string; finish: string; look: string;
+  /** Woven cloth, or chopped fibre with no weave at all (forged). */
+  pattern: "woven" | "random";
+  /** What the material must look like in a photoreal render, specific enough that each one is recognisable. */
+  render: string;
+}
 export const CF_MATERIALS: CfMaterial[] = [
-  { id: "3kPlain", name: "3K Plain Weave", w: "1.62 kg/m²", finish: "Gloss/Matte/Satin", look: "classic carbon fiber 2x2 cross-hatch woven pattern, glossy finish" },
-  { id: "2x2Twill", name: "2×2 Twill Weave", w: "1.78 kg/m²", finish: "Gloss/Satin", look: "diagonal 45-degree twill carbon fiber weave, high-sheen finish" },
-  { id: "12kHeavy", name: "12K Heavy Weave", w: "2.44 kg/m²", finish: "Gloss", look: "large bold-tow carbon fiber weave pattern, thick fiber bundles visible" },
-  { id: "forged", name: "Forged Carbon", w: "1.52 kg/m²", finish: "Gloss (random)", look: "random chopped strand forged carbon composite with organic flowing fiber texture" },
-  { id: "dryCarbon", name: "Dry Pre-preg Carbon", w: "1.18 kg/m²", finish: "Gloss/Matte", look: "ultra-fine precise uniform carbon fiber weave, competition race-grade surface" },
-  { id: "kevlarHybrid", name: "Carbon-Kevlar Hybrid", w: "1.98 kg/m²", finish: "Gloss", look: "interwoven black carbon fiber and yellow Kevlar aramid fibers, hybrid woven pattern" },
+  {
+    id: "3kPlain", name: "3K Plain Weave", w: "1.62 kg/m²", finish: "Gloss/Matte/Satin", look: "classic carbon fiber 2x2 cross-hatch woven pattern, glossy finish", pattern: "woven",
+    render: "a tight, even CHECKERBOARD of small square cells: each narrow tow (about 2 mm wide) passes over one and under one at 0°/90°, in perfectly straight rows aligned with the part's edges; neighbouring squares alternate light and dark as the angle to the light changes; deep glossy clear coat",
+  },
+  {
+    id: "2x2Twill", name: "2×2 Twill Weave", w: "1.78 kg/m²", finish: "Gloss/Satin", look: "diagonal 45-degree twill carbon fiber weave, high-sheen finish", pattern: "woven",
+    render: "a 2×2 TWILL: each narrow tow passes over two and under two, forming continuous DIAGONAL stepped stripes running at 45° across the surface, not a checkerboard; the diagonal bands shimmer and appear to slide as the viewing angle changes; deep glossy clear coat",
+  },
+  {
+    id: "12kHeavy", name: "12K Heavy Weave", w: "2.44 kg/m²", finish: "Gloss", look: "large bold-tow carbon fiber weave pattern, thick fiber bundles visible", pattern: "woven",
+    render: "a HEAVY 12K weave: wide, flat fibre bundles about three to four times wider than standard 3K, so the woven blocks are large and bold and clearly readable from several metres away; glossy clear coat",
+  },
+  {
+    id: "forged", name: "Forged Carbon", w: "1.52 kg/m²", finish: "Gloss (random)", look: "random chopped strand forged carbon composite with organic flowing fiber texture", pattern: "random",
+    render: "FORGED carbon (chopped fibre, compression moulded) — it has NO weave, NO grid and NO repeating pattern at all: the surface is a random MARBLED mosaic of irregular, flattened fibre flakes and swirls in deep black, charcoal and silvery grey, pieces of varied size and orientation overlapping like dark marble or granite camouflage; under the gloss clear coat individual flakes catch the light on their own, so some patches flash silver while neighbouring ones stay black; each part has its own unique random pattern. It must never look like woven cloth, a checkerboard or diagonal twill",
+  },
+  {
+    id: "dryCarbon", name: "Dry Pre-preg Carbon", w: "1.18 kg/m²", finish: "Gloss/Matte", look: "ultra-fine precise uniform carbon fiber weave, competition race-grade surface", pattern: "woven",
+    render: "DRY PRE-PREG carbon (autoclave cured, race grade): a very fine, tight twill with perfectly straight, uniform tows and no wavy or distorted lines even over curves; SATIN finish with soft, diffuse highlights instead of a wet mirror shine",
+  },
+  {
+    id: "kevlarHybrid", name: "Carbon-Kevlar Hybrid", w: "1.98 kg/m²", finish: "Gloss", look: "interwoven black carbon fiber and yellow Kevlar aramid fibers, hybrid woven pattern", pattern: "woven",
+    render: "a CARBON-KEVLAR hybrid weave: black carbon tows interwoven with GOLDEN-YELLOW aramid (Kevlar) tows, giving clearly visible black-and-gold stripes or checks; the yellow tows have a soft satin sheen while the black tows are glossy; glossy clear coat",
+  },
 ];
 
 // View keys are part of the API contract with /api/bodykit/generate-part-drawing.
