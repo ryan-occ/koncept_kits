@@ -31,6 +31,7 @@ import {
   type DrawingView,
   type PartId,
   type RenderAngle,
+  RENDER_ANGLE_LABELS,
 } from "../../shared/types";
 
 import { CF_MATERIALS, getHondaFactoryVariant, type CfMaterial } from "../../shared/catalog";
@@ -352,7 +353,22 @@ export function carbonMaterialBlock(config: BuildConfig, cf = carbonMaterial(con
     `Use this one material on all of them, and do not substitute any other carbon pattern.`;
 }
 
-export function renderConditioning(angle: RenderAngle, drawings: Partial<Record<DrawingView, Img>>): ConditioningImage[] {
+/** A finished render of another angle of the same build, used to keep paint and materials consistent. */
+export interface FinishReference extends Img { angle: RenderAngle }
+
+/** At most this many finished renders go with each render, to keep input cost down. */
+export const MAX_FINISH_REFERENCES = 2;
+
+/**
+ * Line drawings carry no colour or finish, so on their own every angle guesses which
+ * parts are carbon. Renders already made for this build (the ones the designer kept
+ * first) are sent along so the new angle matches them.
+ */
+export function renderConditioning(
+  angle: RenderAngle,
+  drawings: Partial<Record<DrawingView, Img>>,
+  finishReferences: FinishReference[] = [],
+): ConditioningImage[] {
   const out: ConditioningImage[] = [];
   const baseView = RENDER_BASE_VIEW[angle];
   if (baseView && drawings[baseView]) {
@@ -367,6 +383,16 @@ export function renderConditioning(angle: RenderAngle, drawings: Partial<Record<
     out.push({
       ...drawing, role: "reference", label: `approved ${DRAWING_VIEW_LABELS[view].toLowerCase()} drawing`,
       directive: "Geometry reference for the same car and kit. Match its shapes exactly; do not copy its viewing angle or line-art style.",
+    });
+  }
+  for (const ref of finishReferences.filter(r => r.angle !== angle).slice(0, MAX_FINISH_REFERENCES)) {
+    out.push({
+      data: ref.data, mime: ref.mime, role: "reference",
+      label: `approved ${RENDER_ANGLE_LABELS[ref.angle].toLowerCase()} render of this same build`,
+      directive: "FINISH REFERENCE — this is the same car already photographed from another angle. Match it exactly: " +
+        "the paint colour and finish, which kit parts are exposed carbon and which are painted body colour, the carbon pattern, " +
+        "the wheel and trim finishes, and the setting and lighting mood. Take shapes from the approved drawings, " +
+        "not from this photo, and do not copy its viewing angle.",
     });
   }
   return out;

@@ -292,6 +292,38 @@ describe("drawing-first workflow", () => {
     expect(res.body.error).toContain("vented hood close-up");
   });
 
+  it("keeps paint and materials consistent across render angles", async () => {
+    const { app, studio, calls } = setup();
+    const build = await createBuild(app);
+    await drawAndWait(app, studio, build.id);
+    expect((await request(app).post(`/api/builds/${build.id}/drawings/approve`)).status).toBe(200);
+
+    calls.length = 0;
+    await request(app).post(`/api/builds/${build.id}/renders`).send({ angles: ["front-three-quarter", "side-profile", "rear-three-quarter", "front-elevation"] });
+    await studio.waitForJob(build.id);
+    const order = calls.map(c => c.mockLabel!.split("— ")[1]);
+    // Straight-on views first, then the 3/4 angles.
+    expect(order.slice(0, 2).sort()).toEqual(["FRONT-ELEVATION", "SIDE-PROFILE"]);
+    expect(order.slice(2).sort()).toEqual(["FRONT-THREE-QUARTER", "REAR-THREE-QUARTER"]);
+    const finishRefs = (label: string) => calls.find(c => c.mockLabel!.endsWith(label))!.conditioning!
+      .filter(c => c.label.endsWith("render of this same build")).map(c => c.label);
+    expect(finishRefs("SIDE-PROFILE")).toEqual([]);
+    expect(finishRefs("FRONT-THREE-QUARTER").sort()).toEqual([
+      "approved front elevation render of this same build", "approved side profile render of this same build",
+    ]);
+
+    // Re-rendering some angles: the renders that were kept set the look, and come first.
+    calls.length = 0;
+    await request(app).post(`/api/builds/${build.id}/renders`).send({ angles: ["side-profile", "rear-three-quarter"] });
+    await studio.waitForJob(build.id);
+    expect(finishRefs("SIDE-PROFILE").sort()).toEqual([
+      "approved front 3/4 hero render of this same build", "approved front elevation render of this same build",
+    ]);
+    const rear = finishRefs("REAR-THREE-QUARTER");
+    expect(rear).toHaveLength(2);
+    expect(rear).not.toContain("approved rear 3/4 render of this same build");
+  });
+
   it("refuses renders and export until the drawings are approved", async () => {
     const { app, studio } = setup();
     const build = await createBuild(app);
@@ -322,6 +354,8 @@ describe("drawing-first workflow", () => {
     expect(rear.conditioning?.every(c => c.role === "reference")).toBe(true);
     expect(rear.conditioning?.map(c => c.label)).toEqual([
       "approved side elevation drawing", "approved rear elevation drawing", "approved top plan drawing",
+      // The side view rendered first; the 3/4 angle matches its paint and materials.
+      "approved side profile render of this same build",
     ]);
 
     const body = (await request(app).get(`/api/builds/${build.id}`)).body as BuildDto;

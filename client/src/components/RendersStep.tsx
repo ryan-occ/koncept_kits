@@ -24,7 +24,7 @@ export function RendersStep({ build, onRender, onNext }: {
     <section className="panel" aria-labelledby="renders-heading">
       <h2 id="renders-heading">Renders</h2>
       <p className="panel-intro">
-        Each render is made from the approved drawings: the side and front views are turned straight into photographs, and the 3/4 angles use all the drawings as their geometry reference.
+        Each render is made from the approved drawings: the side and front views are turned straight into photographs, and the 3/4 angles use all the drawings as their geometry reference. Side and front are made first, and every new render matches the paint and carbon of the renders already made; when you re-render some angles, the ones you keep set the look.
         Pick the angles you want — each one is a single high-quality image.
       </p>
       {job?.done && job.failed.length > 0 && (

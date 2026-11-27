@@ -15,6 +15,7 @@ import type { VehicleLibrary } from "./vehicles/library";
 import { configSignature } from "./domain/signature";
 import {
   drawingConditioning, drawingPrompt, includedParts, partConditioning, partDrawingPrompt, renderConditioning, renderPrompt,
+  RENDER_BASE_VIEW, type FinishReference,
 } from "./domain/prompts";
 import { estimatePartSpecs, generatePartSpecs } from "./domain/part-specs";
 import { buildExportZip, slug } from "./export/package";
@@ -340,28 +341,42 @@ export class Studio {
     await this.assertBudget(unique.length);
     const drawingRows = await this.store.listDrawings(set.id, true);
     const drawings = Object.fromEntries(drawingRows.map(d => [d.view, { data: d.data, mime: d.mime }])) as Partial<Record<DrawingView, Img>>;
+    // Renders the designer kept (current ones for angles not being redone) set the look;
+    // they go first so the new angles match them.
+    const approvedAt = set.approvedAt;
+    const kept = approvedAt
+      ? (await this.store.latestRenders(id, set.id, true)).filter(r => r.createdAt >= approvedAt && !unique.includes(r.angle))
+      : [];
+    const finished: FinishReference[] = kept.map(r => ({ angle: r.angle, data: r.data, mime: r.mime }));
     this.startJob(id, "renders", unique, async () => {
       const job = this.jobs.get(id)!;
-      // Two at a time keeps provider load predictable without making the user wait for each angle.
-      const queue = [...unique];
-      const worker = async () => {
-        for (let angle = queue.shift(); angle; angle = queue.shift()) {
-          const current = angle;
-          await this.runItem(job, current, async () => {
-            const result = await this.ai.image({
-              kind: "render",
-              prompt: renderPrompt(build.config, current),
-              quality: env.renderQuality,
-              conditioning: renderConditioning(current, drawings),
-              mockLabel: `${build.config.make} ${build.config.model} — ${current.toUpperCase()}`,
+      // Straight-on views are made from a drawing in place, so they come out most faithful;
+      // they go first and the 3/4 angles then match their paint and materials.
+      const phases = [unique.filter(a => RENDER_BASE_VIEW[a]), unique.filter(a => !RENDER_BASE_VIEW[a])];
+      for (const phase of phases) {
+        const references = [...finished];
+        // Two at a time keeps provider load predictable without making the user wait for each angle.
+        const queue = [...phase];
+        const worker = async () => {
+          for (let angle = queue.shift(); angle; angle = queue.shift()) {
+            const current = angle;
+            await this.runItem(job, current, async () => {
+              const result = await this.ai.image({
+                kind: "render",
+                prompt: renderPrompt(build.config, current),
+                quality: env.renderQuality,
+                conditioning: renderConditioning(current, drawings, references),
+                mockLabel: `${build.config.make} ${build.config.model} — ${current.toUpperCase()}`,
+              });
+              await this.store.recordUsage("render", result.inputTokens, result.outputTokens);
+              console.log(`[studio] render ${current} (${env.renderQuality}): ${result.inputTokens} in / ${result.outputTokens} out tokens`);
+              await this.store.addRender(id, set.id, current, result);
+              finished.push({ angle: current, data: result.data, mime: result.mime });
             });
-            await this.store.recordUsage("render", result.inputTokens, result.outputTokens);
-            console.log(`[studio] render ${current} (${env.renderQuality}): ${result.inputTokens} in / ${result.outputTokens} out tokens`);
-            await this.store.addRender(id, set.id, current, result);
-          });
-        }
-      };
-      await Promise.all([worker(), worker()]);
+          }
+        };
+        await Promise.all([worker(), worker()]);
+      }
     });
     return this.getBuild(id);
   }
