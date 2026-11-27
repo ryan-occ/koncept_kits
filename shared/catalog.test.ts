@@ -65,3 +65,15 @@ describe("Honda vehicle catalog", () => {
     expect(unavailableYear.bodyStyle).toBe("sedan");
   });
 });
+
+describe("Jetour", () => {
+  it("is a selectable CDM make in the Chery group with SUV and pickup body styles", async () => {
+    const { CAR_DB, CDM_MAKE_GROUP_NAME, VEHICLE_MODEL_ALIASES, getBodyStyleChoices, getVehicleMarket } = await import("./catalog");
+    expect(CAR_DB.Jetour!.T2).toContain(2026);
+    expect(getVehicleMarket("Jetour")).toBe("CDM");
+    expect(CDM_MAKE_GROUP_NAME.Jetour).toBe("Chery Group");
+    expect(getBodyStyleChoices("Jetour", "G700").default).toBe("suv");
+    expect(getBodyStyleChoices("Jetour", "F700").default).toBe("truck");
+    expect(VEHICLE_MODEL_ALIASES.Jetour!.T2).toContain("Traveller");
+  });
+});

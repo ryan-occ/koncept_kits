@@ -66,6 +66,8 @@ export const CAR_DB: Record<string, Record<string, number[]>> = {
   Geely: { "Emgrand": [2021,2022,2023,2024,2025], "Xingyue L": [2021,2022,2023,2024,2025], "Boyue": [2021,2022,2023,2024,2025], "Preface": [2021,2022,2023,2024,2025], "Galaxy L6": [2023,2024,2025], "Galaxy E5": [2024,2025] },
   "Lynk & Co": { "Lynk 01": [2020,2021,2022,2023,2024,2025], "Lynk 05": [2020,2021,2022,2023,2024,2025], "Lynk 06": [2020,2021,2022,2023,2024,2025], "Lynk 08": [2023,2024,2025], "Lynk 09": [2022,2023,2024,2025] },
   Chery: { "Tiggo 8 Pro": [2021,2022,2023,2024,2025], "Tiggo 7 Pro": [2021,2022,2023,2024,2025], "Tiggo 4 Pro": [2022,2023,2024,2025], "Arrizo 8": [2022,2023,2024,2025], "Arrizo 6 Pro": [2021,2022,2023,2024] },
+  // Years from Jetour's production ranges (Wikipedia, cross-checked with Jetour UAE's current range).
+  Jetour: { "X70": yearsBetween(2018, 2026), "X70 Plus": yearsBetween(2022, 2026), "X90": yearsBetween(2019, 2026), "X90 Plus": yearsBetween(2021, 2026), "Dashing": yearsBetween(2022, 2026), "T2": yearsBetween(2023, 2026), "T1": yearsBetween(2024, 2026), "X50": yearsBetween(2024, 2026), "G700": [2025, 2026], "F700": [2026] },
   EXEED: { "Sterra ES": [2023,2024,2025], "Sterra ET": [2023,2024,2025], "LX": [2022,2023,2024,2025], "VX": [2021,2022,2023,2024,2025] },
   Changan: { "CS75 Plus": [2020,2021,2022,2023,2024,2025], "CS55 Plus": [2020,2021,2022,2023,2024,2025], "Uni-V": [2022,2023,2024,2025], "Uni-K": [2021,2022,2023,2024,2025], "Lamore": [2023,2024,2025], "UNI-T": [2020,2021,2022,2023,2024] },
   "Deep Blue": { "SL03": [2022,2023,2024,2025], "S7": [2023,2024,2025], "G318": [2023,2024,2025] },
@@ -169,6 +171,12 @@ export const VEHICLE_MODEL_ALIASES: Readonly<
   Volkswagen: {
     "Golf R (Mk8)": ["Golf R", "Mk8 Golf R"],
     "Golf GTI (Mk8)": ["Golf GTI", "Mk8 GTI"],
+  },
+  Jetour: {
+    T2: ["Traveller", "Traveler"],
+    T1: ["Freedom"],
+    G700: ["Zongheng G700"],
+    F700: ["Zongheng F700"],
   },
   Dodge: {
     "Challenger SRT Demon": ["Demon", "Demon Challenger"],
@@ -275,7 +283,7 @@ const MAKE_MARKET_MAP: Record<string, Market> = {
   "Lincoln": "USDM", "Shelby": "USDM",
   // CDM — China Domestic Market
   "BYD": "CDM", "Geely": "CDM", "NIO": "CDM", "Lynk & Co": "CDM",
-  "Xpeng": "CDM", "Li Auto": "CDM", "Zeekr": "CDM", "Chery": "CDM",
+  "Xpeng": "CDM", "Li Auto": "CDM", "Zeekr": "CDM", "Chery": "CDM", "Jetour": "CDM",
   "EXEED": "CDM", "Changan": "CDM", "Deep Blue": "CDM", "MG": "CDM",
   "Roewe": "CDM", "Haval": "CDM", "Tank": "CDM", "Wey": "CDM",
   "Hongqi": "CDM", "Voyah": "CDM", "IM Motors": "CDM", "Leapmotor": "CDM",
@@ -298,6 +306,7 @@ export function getVehicleMarket(make: string): Market {
 // to the underlying data structure or filtering logic.
 export const CDM_MAKE_GROUPS: ReadonlyArray<{ readonly label: string; readonly makes: readonly string[] }> = [
   { label: "BYD Group",     makes: ["BYD", "Denza", "Yangwang", "Fang Cheng Bao"] },
+  { label: "Chery Group",   makes: ["Chery", "EXEED", "Jetour"] },
   { label: "GWM Group",     makes: ["Haval", "Tank", "Wey", "Ora"] },
   { label: "SAIC Group",    makes: ["MG", "Roewe", "IM Motors"] },
   { label: "Changan Group", makes: ["Changan", "Deep Blue", "AVATR"] },
@@ -653,6 +662,17 @@ const MODEL_CATEGORY_MAP: Record<string, VehicleCategory> = {
   "Lynk 06": "crossover",
   "Lynk 08": "crossover",
   "Lynk 09": "crossover",
+  // Jetour
+  "X70": "suv",
+  "X70 Plus": "suv",
+  "X90": "suv",
+  "X90 Plus": "suv",
+  "Dashing": "crossover",
+  "T2": "suv",
+  "T1": "suv",
+  "X50": "crossover",
+  "G700": "suv",
+  "F700": "pickup",
   // Chery
   "Tiggo 8 Pro": "suv",
   "Tiggo 7 Pro": "crossover",
@@ -1085,6 +1105,10 @@ const CURATED_MODEL_BODY_STYLE: Record<string, BodyStyle> = {
   // Chery
   "Chery:Tiggo 8 Pro": "suv", "Chery:Tiggo 7 Pro": "suv", "Chery:Tiggo 4 Pro": "suv",
   "Chery:Arrizo 8": "sedan", "Chery:Arrizo 6 Pro": "sedan",
+  // Jetour
+  "Jetour:X70": "suv", "Jetour:X70 Plus": "suv", "Jetour:X90": "suv", "Jetour:X90 Plus": "suv",
+  "Jetour:Dashing": "suv", "Jetour:T2": "suv", "Jetour:T1": "suv", "Jetour:X50": "suv",
+  "Jetour:G700": "suv", "Jetour:F700": "truck",
   // EXEED
   "EXEED:Sterra ES": "suv", "EXEED:Sterra ET": "suv",
   "EXEED:LX": "suv", "EXEED:VX": "suv",
